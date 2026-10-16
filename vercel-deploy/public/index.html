@@ -36,8 +36,8 @@
 
   main { padding: 8px 16px 60px; }
   .status { color: var(--muted); padding: 24px 0; }
-  .week { margin-top: 22px; }
-  .week h2 { font: 600 13px Inter, sans-serif; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; }
+  .month { margin-top: 26px; }
+  .month h2 { font: 600 13px Inter, sans-serif; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; }
 
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 10px; overflow: hidden; }
   .card > button { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 14px 16px; }
@@ -97,19 +97,15 @@ const $ = (s) => document.querySelector(s);
 const state = { tour: "ALL", tournaments: [], players: new Map(), open: new Set() };
 const today = new Date();
 const iso = (d) => d.toISOString().slice(0, 10);
-$("#from").value = iso(new Date(today - 7 * 864e5));
-$("#to").value = iso(new Date(+today + 60 * 864e5));
+// Default range: start of this month through the end of the month after next.
+const localDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+$("#from").value = localDay(new Date(today.getFullYear(), today.getMonth(), 1));
+$("#to").value = localDay(new Date(today.getFullYear(), today.getMonth() + 3, 0));
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fmt = (d, opts) => new Date(d + "T12:00:00").toLocaleDateString(undefined, opts);
 const key = (t) => `${t.tour}:${t.id}`;
 const ENTRY = { M: "Main draw", Q: "Qualifying", WC: "Wildcards", LL: "Lucky losers", ALT: "Alternates", PR: "Protected ranking", SE: "Special exempt" };
-
-function weekStart(d) {
-  const x = new Date(d + "T12:00:00");
-  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
-  return iso(x);
-}
 
 async function load() {
   $("#list").innerHTML = '<div class="status">Loading tournaments…</div>';
@@ -137,16 +133,16 @@ function render() {
   const q = $("#q").value.trim().toLowerCase();
   const list = state.tournaments.filter((t) => (state.tour === "ALL" || t.tour === state.tour) && matches(t, q));
   if (!list.length) { $("#list").innerHTML = '<div class="status">No tournaments match.</div>'; return; }
-  const weeks = new Map();
+  const months = new Map();
   for (const t of list) {
-    const w = weekStart(t.startDate);
-    if (!weeks.has(w)) weeks.set(w, []);
-    weeks.get(w).push(t);
+    const m = t.startDate.slice(0, 7);
+    if (!months.has(m)) months.set(m, []);
+    months.get(m).push(t);
   }
   const now = iso(today);
-  $("#list").innerHTML = [...weeks].map(([w, ts]) => `
-    <section class="week">
-      <h2>Week of ${fmt(w, { month: "long", day: "numeric", year: "numeric" })}</h2>
+  $("#list").innerHTML = [...months].map(([m, ts]) => `
+    <section class="month">
+      <h2>${fmt(m + "-01", { month: "long", year: "numeric" })} · ${ts.length} tournament${ts.length === 1 ? "" : "s"}</h2>
       ${ts.map((t) => {
         const live = t.startDate <= now && now <= t.endDate;
         const k = key(t);

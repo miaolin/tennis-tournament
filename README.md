@@ -6,8 +6,8 @@ A small website that collects ATP and WTA tournament information (dates, venue, 
 
 ## Features
 
-- ATP and WTA tournaments on one page, grouped by week, with an "In progress / Upcoming / Completed" status
-- Filter by tour (All / ATP / WTA) and date range (defaults to a week ago through 60 days ahead)
+- ATP and WTA tournaments on one page, grouped by month, with an "In progress / Upcoming / Completed" status
+- Filter by tour (All / ATP / WTA) and date range (defaults to the start of this month through the end of the month after next)
 - Search by tournament, city or country, plus players in any tournament you've opened
 - Click a tournament to load its player list: singles and doubles, grouped into main draw and qualifying, with seeds
 - Link to each tournament's official page

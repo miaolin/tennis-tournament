@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- Tournament list is grouped by month (with a per-month count) instead of by week.
+- Default date range covers whole months: the start of the current month through the end of the month after next.
+
 ## [1.0.0] - 2026-10-16
 
 ### Added
