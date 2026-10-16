@@ -13,6 +13,8 @@ lib/tennis.js         WTA (api.wtatennis.com) and ATP (ESPN) fetchers
 
 Responses are cached at Vercel's edge for 10 minutes (`s-maxage=600`).
 
+Data sources (WTA API and ESPN's ATP feed) are documented in [../docs/data-sources.md](../docs/data-sources.md).
+
 ## Deploy
 
 ```sh

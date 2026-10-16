@@ -19,6 +19,7 @@ A small website that collects ATP and WTA tournament information (dates, venue, 
 server.js             Node server: serves public/ and the /api routes (local use)
 public/index.html     frontend
 vercel-deploy/        serverless version of the same app, deployed to Vercel
+docs/data-sources.md  where the WTA and ATP data comes from
 CHANGELOG.md          release notes
 ```
 
@@ -57,3 +58,5 @@ See [vercel-deploy/README.md](vercel-deploy/README.md). `vercel-deploy/` keeps i
 
 atptour.com is behind Cloudflare bot protection, so ATP data comes from ESPN, which doesn't publish pre-draw entry lists, surface, prize money or tournament level.
 The WTA API rejects browser requests from other origins, so the server proxies both sources and caches responses for 10 minutes.
+
+Full details (endpoints, fields used, date handling, limitations): [docs/data-sources.md](docs/data-sources.md).
