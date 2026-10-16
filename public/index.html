@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tennis Tournaments</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f1ea; --surface: #fffdf8; --ink: #1d2a24; --muted: #6b766f; --line: #e2ddd1;
+    --court: #1f5c46; --clay: #c4622d; --atp: #1f4e8c; --wta: #7a2d8c; --ball: #d7e84a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111714; --surface: #18201c; --ink: #e8ece9; --muted: #93a099; --line: #2a3530;
+      --court: #5fb38f; --clay: #e08355; --atp: #7aa7e6; --wta: #c88ad6; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 Inter, system-ui, sans-serif; }
+  header { background: var(--court); color: #fff; padding: 28px 16px 22px; position: relative; overflow: hidden; }
+  header::after { content: ""; position: absolute; inset: auto -40px -60px auto; width: 180px; height: 180px; border-radius: 50%;
+    background: var(--ball); opacity: .9; box-shadow: inset 18px -10px 0 -8px rgba(0,0,0,.08); }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  h1 { font: 800 clamp(28px, 5vw, 42px)/1.05 Fraunces, Georgia, serif; margin: 0 0 6px; letter-spacing: -.5px; position: relative; z-index: 1; }
+  header p { margin: 0; opacity: .85; position: relative; z-index: 1; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; padding: 16px; position: sticky; top: 0; z-index: 5;
+    background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
+  .seg button { border: 0; background: none; padding: 8px 14px; font: 600 13px Inter, sans-serif; color: var(--muted); cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  label { display: flex; flex-direction: column; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); gap: 4px; }
+  input { font: 14px Inter, sans-serif; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+  .grow { flex: 1 1 200px; }
+  .grow input { width: 100%; }
+
+  main { padding: 8px 16px 60px; }
+  .status { color: var(--muted); padding: 24px 0; }
+  .month { margin-top: 26px; }
+  .month h2 { font: 600 13px Inter, sans-serif; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 10px; overflow: hidden; }
+  .card > button { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 14px 16px; }
+  .card > button:focus-visible { outline: 2px solid var(--court); outline-offset: -2px; }
+  .tour { font: 800 12px Inter, sans-serif; color: #fff; border-radius: 6px; padding: 4px 7px; letter-spacing: .04em; }
+  .tour.ATP { background: var(--atp); } .tour.WTA { background: var(--wta); }
+  .name { font: 600 17px/1.25 Fraunces, Georgia, serif; }
+  .meta { color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 2px; }
+  .dates { text-align: right; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .dates small { display: block; font-weight: 500; color: var(--muted); }
+  .live { color: var(--clay); }
+  .chev { transition: transform .2s; display: inline-block; margin-left: 6px; color: var(--muted); }
+  .card.open .chev { transform: rotate(90deg); }
+
+  .detail { border-top: 1px solid var(--line); padding: 14px 16px 18px; display: none; }
+  .card.open .detail { display: block; }
+  .detail-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .detail a { color: var(--court); font-weight: 600; text-decoration: none; }
+  .detail a:hover { text-decoration: underline; }
+  .note { color: var(--muted); font-size: 13px; }
+  .group-title { font: 600 12px Inter, sans-serif; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 6px; }
+  .players { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 16px; }
+  .players li { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; border-bottom: 1px dashed var(--line); font-size: 14px; }
+  .players .cc { font-size: 11px; font-weight: 600; color: var(--muted); min-width: 32px; }
+  .players .seed { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--clay); }
+  mark { background: var(--ball); color: #1d2a24; border-radius: 3px; padding: 0 2px; }
+
+  .legend { display: flex; gap: 14px; align-items: center; font-size: 12px; color: var(--muted); margin-top: 18px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .cal { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-bottom: 12px; }
+  .cal-head, .cal-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .cal-head span { font: 600 11px Inter, sans-serif; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 8px 8px 6px; }
+  .cal-week { border-top: 1px solid var(--line); min-height: 70px; padding-bottom: 6px; align-content: start;
+    background-image: linear-gradient(to right, var(--line) 1px, transparent 1px); background-size: calc(100% / 7) 100%; background-position: -1px 0; }
+  .cal-day { grid-row: 1; font-size: 12px; font-weight: 600; padding: 5px 8px 3px; }
+  .cal-day.out { color: var(--muted); opacity: .45; }
+  .cal-day.today span { background: var(--clay); color: #fff; border-radius: 999px; padding: 1px 7px; }
+  .cal-ev { all: unset; box-sizing: border-box; margin: 1px 3px; padding: 2px 7px; border-radius: 6px; cursor: pointer; color: #fff;
+    font: 600 12px/1.35 Inter, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .cal-ev.ATP { background: var(--atp); } .cal-ev.WTA { background: var(--wta); }
+  .cal-ev.past { opacity: .5; }
+  .cal-ev.cl { margin-left: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+  .cal-ev.cr { margin-right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  .cal-ev.sel { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ball); }
+  .cal-ev:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--court); }
+  .cal-ev small { font-weight: 800; opacity: .8; margin-right: 5px; }
+
+  @media (max-width: 560px) {
+    .card > button { grid-template-columns: auto 1fr; }
+    .dates { grid-column: 2; text-align: left; }
+    .cal-head span { padding: 6px 4px; font-size: 10px; }
+    .cal-day { padding: 4px 4px 2px; font-size: 11px; }
+    .cal-ev { font-size: 10px; padding: 1px 4px; margin: 1px; }
+    .cal-ev small { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Tennis Tournaments</h1>
+    <p>ATP &amp; WTA calendar: dates, venues and player lists in one place.</p>
+  </div>
+</header>
+
+<div class="controls wrap">
+  <div class="seg" id="viewSeg" role="group" aria-label="View">
+    <button data-view="list" aria-pressed="true">List</button>
+    <button data-view="calendar" aria-pressed="false">Calendar</button>
+  </div>
+  <div class="seg" id="tourSeg" role="group" aria-label="Tour">
+    <button data-tour="ALL" aria-pressed="true">All</button>
+    <button data-tour="ATP" aria-pressed="false">ATP</button>
+    <button data-tour="WTA" aria-pressed="false">WTA</button>
+  </div>
+  <label>From <input type="date" id="from"></label>
+  <label>To <input type="date" id="to"></label>
+  <label class="grow">Search <input type="search" id="q" placeholder="Tournament, city, country or loaded player…"></label>
+</div>
+
+<main class="wrap" id="list"><div class="status">Loading tournaments…</div></main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const state = { tour: "ALL", view: "list", tournaments: [], players: new Map(), open: new Set(), selected: null };
+try { if (localStorage.getItem("view") === "calendar") state.view = "calendar"; } catch {}
+const today = new Date();
+// Default range: start of this month through the end of the month after next.
+const localDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+$("#from").value = localDay(new Date(today.getFullYear(), today.getMonth(), 1));
+$("#to").value = localDay(new Date(today.getFullYear(), today.getMonth() + 3, 0));
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = (d, opts) => new Date(d + "T12:00:00").toLocaleDateString(undefined, opts);
+const key = (t) => `${t.tour}:${t.id}`;
+const ENTRY = { M: "Main draw", Q: "Qualifying", WC: "Wildcards", LL: "Lucky losers", ALT: "Alternates", PR: "Protected ranking", SE: "Special exempt" };
+
+async function load() {
+  $("#list").innerHTML = '<div class="status">Loading tournaments…</div>';
+  try {
+    const r = await fetch(`/api/tournaments?from=${$("#from").value}&to=${$("#to").value}`);
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error);
+    state.tournaments = data.tournaments;
+    if (data.errors.length) console.warn(data.errors);
+    render();
+  } catch (e) {
+    $("#list").innerHTML = `<div class="status">Couldn't load tournaments: ${esc(e.message)}</div>`;
+  }
+}
+
+function matches(t, q) {
+  if (!q) return true;
+  const hay = [t.name, t.city, t.country, t.level, t.surface].join(" ").toLowerCase();
+  if (hay.includes(q)) return true;
+  const p = state.players.get(key(t));
+  return !!p && [...p.singles, ...p.doubles].some((e) => e.names.join(" ").toLowerCase().includes(q));
+}
+
+function render() {
+  const q = $("#q").value.trim().toLowerCase();
+  const list = state.tournaments.filter((t) => (state.tour === "ALL" || t.tour === state.tour) && matches(t, q));
+  if (!list.length) { $("#list").innerHTML = '<div class="status">No tournaments match.</div>'; return; }
+  $("#list").innerHTML = state.view === "calendar" ? renderCalendar(list, q) : renderList(list, q);
+}
+
+function renderList(list, q) {
+  const months = new Map();
+  for (const t of list) {
+    const m = t.startDate.slice(0, 7);
+    if (!months.has(m)) months.set(m, []);
+    months.get(m).push(t);
+  }
+  return [...months].map(([m, ts]) => `
+    <section class="month">
+      <h2>${fmt(m + "-01", { month: "long", year: "numeric" })} · ${ts.length} tournament${ts.length === 1 ? "" : "s"}</h2>
+      ${ts.map((t) => cardHTML(t, q)).join("")}
+    </section>`).join("");
+}
+
+function cardHTML(t, q) {
+  const now = localDay(today);
+  const live = t.startDate <= now && now <= t.endDate;
+  const k = key(t);
+  return `<article class="card ${state.open.has(k) ? "open" : ""}" data-key="${esc(k)}">
+    <button aria-expanded="${state.open.has(k)}">
+      <span class="tour ${t.tour}">${t.tour}</span>
+      <span>
+        <div class="name">${esc(t.name)}</div>
+        <div class="meta">
+          <span>📍 ${esc([t.city, t.country].filter(Boolean).join(", ") || "TBA")}</span>
+          ${t.level ? `<span>${esc(t.level)}</span>` : ""}
+          ${t.surface ? `<span>${esc(t.surface)}</span>` : ""}
+          ${t.prizeMoney ? `<span>${esc(t.prizeMoney)}</span>` : ""}
+        </div>
+      </span>
+      <span class="dates">${fmt(t.startDate, { month: "short", day: "numeric" })} – ${fmt(t.endDate, { month: "short", day: "numeric" })}<span class="chev">›</span>
+        <small class="${live ? "live" : ""}">${live ? "● In progress" : t.endDate < now ? "Completed" : "Upcoming"}</small></span>
+    </button>
+    <div class="detail">${state.open.has(k) ? renderPlayers(t, q) : ""}</div>
+  </article>`;
+}
+
+// Day arithmetic on YYYY-MM-DD strings, done in UTC so DST never shifts a day.
+const dayNum = (d) => Date.parse(d + "T00:00:00Z") / 864e5;
+const numDay = (n) => new Date(n * 864e5).toISOString().slice(0, 10);
+
+function renderCalendar(list, q) {
+  const now = localDay(today);
+  const from = $("#from").value, to = $("#to").value;
+  const months = [];
+  for (let y = +from.slice(0, 4), m = +from.slice(5, 7); `${y}-${String(m).padStart(2, "0")}` <= to.slice(0, 7); m === 12 ? (y++, m = 1) : m++) {
+    months.push(`${y}-${String(m).padStart(2, "0")}`);
+  }
+  const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => `<span>${d}</span>`).join("");
+  const sel = state.selected && list.find((t) => key(t) === state.selected.key);
+
+  const monthHTML = (ym) => {
+    const first = dayNum(ym + "-01");
+    const last = dayNum(numDay(dayNum(ym + "-28") + 4).slice(0, 7) + "-01") - 1;
+    let weekStart = first - ((new Date(first * 864e5).getUTCDay() + 6) % 7);
+    const inMonth = list.filter((t) => dayNum(t.startDate) <= last && dayNum(t.endDate) >= first);
+    let weeks = "";
+    for (; weekStart <= last; weekStart += 7) {
+      const weekEnd = weekStart + 6;
+      let cells = "";
+      for (let i = 0; i < 7; i++) {
+        const d = numDay(weekStart + i);
+        cells += `<div class="cal-day ${d.slice(0, 7) !== ym ? "out" : ""} ${d === now ? "today" : ""}" style="grid-column:${i + 1}"><span>${+d.slice(8)}</span></div>`;
+      }
+      // Stack overlapping tournaments into lanes: each takes the first lane that's free from its start column.
+      const evs = inMonth
+        .filter((t) => dayNum(t.startDate) <= weekEnd && dayNum(t.endDate) >= weekStart)
+        .sort((a, b) => a.startDate.localeCompare(b.startDate) || b.endDate.localeCompare(a.endDate) || a.tour.localeCompare(b.tour));
+      const lanes = [];
+      for (const t of evs) {
+        const s0 = Math.max(0, dayNum(t.startDate) - weekStart), e0 = Math.min(6, dayNum(t.endDate) - weekStart);
+        let lane = lanes.findIndex((end) => end < s0);
+        if (lane === -1) lane = lanes.length;
+        lanes[lane] = e0;
+        const cls = [t.tour, t.endDate < now ? "past" : "", dayNum(t.startDate) < weekStart ? "cl" : "", dayNum(t.endDate) > weekEnd ? "cr" : "",
+          state.selected && state.selected.key === key(t) && state.selected.month === ym ? "sel" : ""].join(" ");
+        const title = `${t.tour} · ${t.name} · ${[t.city, t.country].filter(Boolean).join(", ")} · ${fmt(t.startDate, { month: "short", day: "numeric" })} – ${fmt(t.endDate, { month: "short", day: "numeric" })}`;
+        cells += `<button class="cal-ev ${cls}" data-key="${esc(key(t))}" data-month="${ym}" title="${esc(title)}"
+          style="grid-column:${s0 + 1} / ${e0 + 2};grid-row:${lane + 2}"><small>${t.tour}</small>${esc(t.name)}</button>`;
+      }
+      weeks += `<div class="cal-week">${cells}</div>`;
+    }
+    const count = list.filter((t) => t.startDate.slice(0, 7) === ym).length;
+    return `<section class="month">
+      <h2>${fmt(ym + "-01", { month: "long", year: "numeric" })} · ${count} tournament${count === 1 ? "" : "s"}</h2>
+      <div class="cal"><div class="cal-head">${weekdays}</div>${weeks}</div>
+      ${sel && state.selected.month === ym ? cardHTML(sel, q) : ""}
+    </section>`;
+  };
+  return `<div class="legend"><span><i style="background:var(--atp)"></i>ATP</span><span><i style="background:var(--wta)"></i>WTA</span><span>Click a tournament for details and players</span></div>`
+    + months.map(monthHTML).join("");
+}
+
+function renderPlayers(t, q) {
+  const link = t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">Official page ↗</a>` : "";
+  const p = state.players.get(key(t));
+  if (!p) return `<div class="detail-top"><span class="note">Loading player list…</span>${link}</div>`;
+  if (p.error) return `<div class="detail-top"><span class="note">Couldn't load players: ${esc(p.error)}</span>${link}</div>`;
+  const hl = (s) => q ? esc(s).replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), (m) => `<mark>${m}</mark>`) : esc(s);
+  const block = (title, entries) => {
+    if (!entries.length) return "";
+    const groups = new Map();
+    for (const e of entries) {
+      const g = ENTRY[e.entry] || (e.entry ? e.entry : "");
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g).push(e);
+    }
+    const order = Object.values(ENTRY);
+    const rank = (g) => (order.includes(g) ? order.indexOf(g) : order.length);
+    return [...groups].sort((a, b) => rank(a[0]) - rank(b[0])).map(([g, es]) => `
+      <div class="group-title">${esc(title)}${g ? ` · ${esc(g)}` : ""} (${es.length})</div>
+      <ul class="players">${es
+        .sort((a, b) => (+a.seed || 999) - (+b.seed || 999) || a.names[0].localeCompare(b.names[0]))
+        .map((e) => `<li><span class="cc">${esc(e.countries.filter(Boolean).join("/"))}</span><span>${hl(e.names.join(" / "))}</span>${e.seed ? `<span class="seed">[${esc(e.seed)}]</span>` : ""}</li>`)
+        .join("")}</ul>`).join("");
+  };
+  const total = p.singles.length + p.doubles.length;
+  return `<div class="detail-top"><span class="note">Source: ${esc(p.source)}</span>${link}</div>
+    ${total ? block("Singles", p.singles) + block("Doubles", p.doubles)
+      : `<p class="note">No player list published yet. Check back closer to the start date.</p>`}`;
+}
+
+async function toggle(card) {
+  const k = card.dataset.key;
+  if (state.open.has(k)) {
+    state.open.delete(k);
+    if (state.view === "calendar") state.selected = null;
+    render();
+    return;
+  }
+  state.open.add(k);
+  render();
+  loadPlayers(k);
+}
+
+function select(btn) {
+  const k = btn.dataset.key, month = btn.dataset.month;
+  if (state.selected && state.selected.key === k && state.selected.month === month) {
+    state.selected = null;
+    render();
+    return;
+  }
+  state.selected = { key: k, month };
+  state.open.add(k);
+  render();
+  document.querySelector(`.month .card[data-key="${CSS.escape(k)}"]`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  loadPlayers(k);
+}
+
+async function loadPlayers(k) {
+  if (state.players.has(k)) return;
+  const t = state.tournaments.find((x) => key(x) === k);
+  const params = new URLSearchParams({ tour: t.tour, id: t.id, year: t.year, start: t.startDate, end: t.endDate });
+  try {
+    const r = await fetch(`/api/players?${params}`);
+    const data = await r.json();
+    state.players.set(k, r.ok ? data : { error: data.error });
+  } catch (e) {
+    state.players.set(k, { error: e.message });
+  }
+  render();
+}
+
+$("#tourSeg").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  state.tour = b.dataset.tour;
+  document.querySelectorAll("#tourSeg button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+  render();
+});
+function setView(view) {
+  state.view = view;
+  document.querySelectorAll("#viewSeg button").forEach((x) => x.setAttribute("aria-pressed", x.dataset.view === view));
+  try { localStorage.setItem("view", view); } catch {}
+}
+$("#viewSeg").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  setView(b.dataset.view);
+  render();
+});
+setView(state.view);
+$("#list").addEventListener("click", (e) => {
+  if (e.target.closest("a")) return;
+  const ev = e.target.closest(".cal-ev");
+  if (ev) return select(ev);
+  const btn = e.target.closest(".card > button");
+  if (btn) toggle(btn.parentElement);
+});
+$("#from").addEventListener("change", load);
+$("#to").addEventListener("change", load);
+$("#q").addEventListener("input", render);
+load();
+</script>
+</body>
+</html>
