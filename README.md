@@ -2,11 +2,12 @@
 
 A small website that collects ATP and WTA tournament information (dates, venue, level, surface, prize money) and player lists in one place.
 
-**Live:** https://vercel-deploy-nine-umber.vercel.app · **Version:** 1.0.0 ([changelog](CHANGELOG.md))
+**Live:** https://vercel-deploy-nine-umber.vercel.app · **Version:** 1.1.0 ([changelog](CHANGELOG.md))
 
 ## Features
 
 - ATP and WTA tournaments on one page, grouped by month, with an "In progress / Upcoming / Completed" status
+- List view or calendar view (month grids with each tournament as a bar across its dates)
 - Filter by tour (All / ATP / WTA) and date range (defaults to the start of this month through the end of the month after next)
 - Search by tournament, city or country, plus players in any tournament you've opened
 - Click a tournament to load its player list: singles and doubles, grouped into main draw and qualifying, with seeds

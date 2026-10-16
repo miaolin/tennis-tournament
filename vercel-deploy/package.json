@@ -1,6 +1,6 @@
 {
   "name": "tennis-tournament-vercel",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Vercel deployment of the ATP & WTA tournament tracker",
   "engines": { "node": ">=18" }
