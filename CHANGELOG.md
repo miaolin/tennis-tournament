@@ -5,6 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- ATP tournament levels (ATP 250 / 500 / Masters 1000, ATP Finals, Next Gen ATP Finals). ESPN doesn't provide them, so they come from a hand-maintained table in the server code, keyed by ESPN's tournament number.
+
+### Changed
+
+- Calendar bars show the tournament level (for example WTA 1000, ATP 500, Grand Slam) instead of just the tour.
+
 ## [1.1.0] - 2026-10-16
 
 ### Added
@@ -29,7 +37,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Known limitations
 
-- ATP data comes from ESPN because atptour.com blocks automated requests, so ATP tournaments have no pre-draw entry list, surface, prize money or level.
+- ATP data comes from ESPN because atptour.com blocks automated requests, so ATP tournaments have no pre-draw entry list, surface, prize money or level (levels added in a later release).
 
 [Unreleased]: https://github.com/miaolin/tennis-tournament/compare/v1.1.0...HEAD
 [1.1.0]: https://github.com/miaolin/tennis-tournament/compare/v1.0.0...v1.1.0

@@ -53,10 +53,16 @@ ESPN gives dates as midnight US Eastern time in UTC. For example, an end time of
 
 The code requests the tournament's date range, finds the event by ID (for example `315-2026` for Shanghai), and collects every named competitor from its matches, singles and doubles, including qualifying. Each player has a name, country and, where ESPN gives one, a seed.
 
+### Tournament level
+
+ESPN only flags Grand Slams (`major: true`). Other levels (ATP 250, ATP 500, ATP Masters 1000, ATP Finals, Next Gen ATP Finals) come from the `ATP_LEVELS` table in `server.js` and `vercel-deploy/lib/tennis.js`. The table is keyed by ESPN's tournament number, the part of the event id before the year (`10` in `10-2026` for Vienna), so it carries over from season to season. It covers every 2026 ATP event; a tournament that isn't in it shows no level.
+
+**Maintenance:** when a tournament is added, removed or changes category, update the table in both files.
+
 ### What ESPN doesn't provide
 
 - **Pre-draw entry list:** players appear only once the draw is made. Until then, matches list "TBD" and the site shows "No player list published yet."
-- **Surface, prize money and level** (250 / 500 / 1000): not shown for ATP tournaments.
+- **Surface and prize money:** not shown for ATP tournaments.
 
 ### Possible alternative
 

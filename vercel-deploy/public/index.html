@@ -133,6 +133,8 @@ $("#to").value = localDay(new Date(today.getFullYear(), today.getMonth() + 3, 0)
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fmt = (d, opts) => new Date(d + "T12:00:00").toLocaleDateString(undefined, opts);
 const key = (t) => `${t.tour}:${t.id}`;
+// Calendar bar label: "WTA 1000", "WTA Finals", "Grand Slam", or just the tour when the source has no level (most ATP events).
+const levelLabel = (t) => !t.level ? t.tour : t.level.startsWith(t.tour) || t.level === "Grand Slam" ? t.level : `${t.tour} ${t.level}`;
 const ENTRY = { M: "Main draw", Q: "Qualifying", WC: "Wildcards", LL: "Lucky losers", ALT: "Alternates", PR: "Protected ranking", SE: "Special exempt" };
 
 async function load() {
@@ -240,9 +242,9 @@ function renderCalendar(list, q) {
         lanes[lane] = e0;
         const cls = [t.tour, t.endDate < now ? "past" : "", dayNum(t.startDate) < weekStart ? "cl" : "", dayNum(t.endDate) > weekEnd ? "cr" : "",
           state.selected && state.selected.key === key(t) && state.selected.month === ym ? "sel" : ""].join(" ");
-        const title = `${t.tour} · ${t.name} · ${[t.city, t.country].filter(Boolean).join(", ")} · ${fmt(t.startDate, { month: "short", day: "numeric" })} – ${fmt(t.endDate, { month: "short", day: "numeric" })}`;
+        const title = `${levelLabel(t)} · ${t.name} · ${[t.city, t.country].filter(Boolean).join(", ")} · ${fmt(t.startDate, { month: "short", day: "numeric" })} – ${fmt(t.endDate, { month: "short", day: "numeric" })}`;
         cells += `<button class="cal-ev ${cls}" data-key="${esc(key(t))}" data-month="${ym}" title="${esc(title)}"
-          style="grid-column:${s0 + 1} / ${e0 + 2};grid-row:${lane + 2}"><small>${t.tour}</small>${esc(t.name)}</button>`;
+          style="grid-column:${s0 + 1} / ${e0 + 2};grid-row:${lane + 2}"><small>${esc(levelLabel(t))}</small>${esc(t.name)}</button>`;
       }
       weeks += `<div class="cal-week">${cells}</div>`;
     }
