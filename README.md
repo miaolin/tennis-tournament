@@ -12,7 +12,8 @@ A small website that collects ATP and WTA tournament information (dates, venue, 
 - Month tiles to pick a month (or All) of the selected year; opens on the current month, with earlier months shown as the archive
 - Search by tournament, city or country, plus players in any tournament you've opened
 - Click a tournament to load its player list: singles and doubles, grouped into main draw and qualifying, with seeds
-- Keep player lists current: **Update** reloads a list from the source, **Auto-update** reloads it every 5 minutes while open, and a summary shows who withdrew, was added or moved since you first opened it
+- Keep player lists current: **Update** reloads a list from the source, **Auto-update** (on by default for tournaments starting within 15 days) reloads it every 5 minutes while open, and a summary shows who withdrew, was added or moved since you first opened it
+- Daily email alert when a player list changes for any tournament starting within 15 days (see [Daily email alerts](#daily-email-alerts))
 - Link to each tournament's official page
 
 ## Project layout
@@ -22,6 +23,7 @@ server.js             Node server: serves public/ and the /api routes (local use
 public/index.html     frontend
 vercel-deploy/        serverless version of the same app, deployed to Vercel
 vercel-deploy/data/hidden.json  tournaments removed by hand (see below)
+scripts/check-players.js  run the daily player check on this computer
 docs/data-sources.md  where the WTA and ATP data comes from
 CHANGELOG.md          release notes
 ```
@@ -67,6 +69,37 @@ If a tournament's information is wrong, you can remove it for everyone. Removed 
 - `note` (optional): why it's hidden.
 
 The local server applies changes on the next page reload. To publish them to the live site, commit `hidden.json` and redeploy (`cd vercel-deploy && vercel --prod`).
+
+## Daily email alerts
+
+Once a day a Vercel cron job (`vercel-deploy/api/check-players.js`, scheduled in `vercel-deploy/vercel.json` for 00:00 UTC, which is 08:00 in UTC+8) checks every ATP and WTA tournament starting within the next 15 days. It reloads each player list from the source, compares it with the list saved the day before, and emails you the changes: players withdrawn, added, or moved (for example from qualifying to the main draw), and lists published for the first time. No changes, no email. A tournament's first check only saves its list.
+
+The job uses two free services, which need accounts you create yourself:
+
+1. **Resend** (sends the email): sign up at https://resend.com with the address that should receive the alerts, then create an API key. Without your own verified domain, Resend only delivers to the address of your Resend account.
+2. **Upstash Redis** (remembers yesterday's lists): in the Vercel dashboard, open the `vercel-deploy` project, then **Storage** › **Create Database** › **Upstash for Redis** (free plan), and connect it to the project. This adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` to the project.
+
+Then add the other settings and redeploy:
+
+```sh
+cd vercel-deploy
+vercel env add RESEND_API_KEY production   # paste the Resend API key
+vercel env add ALERT_EMAIL production      # your Resend account's email (comma-separate several)
+openssl rand -hex 32 | vercel env add CRON_SECRET production   # Vercel sends this with each cron call
+vercel --prod
+```
+
+Optional: `ALERT_FROM` sets the sender (default `Tennis alerts <onboarding@resend.dev>`; your own needs a domain verified in Resend).
+
+To check the setup, call the job by hand with `?test=1`, which emails you even when nothing changed:
+
+```sh
+vercel env pull .env.check --environment production   # gets CRON_SECRET
+curl -H "Authorization: Bearer $(grep CRON_SECRET .env.check | cut -d'"' -f2)" "https://vercel-deploy-nine-umber.vercel.app/api/check-players?test=1"
+rm .env.check
+```
+
+Any other caller gets 401. **Locally**, `npm run check-players` runs the same check, saving lists in `data/player-snapshots.json`. It emails if `RESEND_API_KEY` and `ALERT_EMAIL` are set in the environment; otherwise it prints the email. Add `-- --test` to get an email even with no changes.
 
 ## API
 
