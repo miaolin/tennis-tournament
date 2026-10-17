@@ -1,0 +1,4 @@
+{
+  "crons": [{ "path": "/api/check-players", "schedule": "0 0 * * *" }],
+  "functions": { "api/check-players.js": { "maxDuration": 60 } }
+}
