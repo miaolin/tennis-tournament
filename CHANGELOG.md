@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- Calendar bars show the tournament level (WTA 125 / 250 / 500 / 1000, WTA Finals, Grand Slam) instead of just the tour. ATP events other than Grand Slams still show "ATP", because ESPN doesn't provide their level.
+
 ## [1.1.0] - 2026-10-16
 
 ### Added
