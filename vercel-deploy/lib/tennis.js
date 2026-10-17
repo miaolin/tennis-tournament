@@ -202,4 +202,14 @@ async function atpPlayers(id, start, end) {
 
 const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || "");
 
-module.exports = { wtaTournaments, wtaPlayers, atpTournaments, atpPlayers, isDate };
+// Tournaments removed by hand (data/hidden.json). An entry matches on tour and id; ATP ids can be
+// given with or without the year suffix ("10" or "10-2026"). An entry without a year hides every year.
+const HIDDEN = require("../data/hidden.json").tournaments || [];
+function isHidden(t, hidden = HIDDEN) {
+  return hidden.some((h) =>
+    String(h.tour).toUpperCase() === t.tour &&
+    (String(h.id) === String(t.id) || String(h.id) === String(t.id).split("-")[0]) &&
+    (h.year == null || Number(h.year) === Number(t.year)));
+}
+
+module.exports = { wtaTournaments, wtaPlayers, atpTournaments, atpPlayers, isDate, isHidden };

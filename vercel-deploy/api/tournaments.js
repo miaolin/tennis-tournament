@@ -1,4 +1,4 @@
-const { wtaTournaments, atpTournaments, isDate } = require("../lib/tennis");
+const { wtaTournaments, atpTournaments, isDate, isHidden } = require("../lib/tennis");
 
 module.exports = async (req, res) => {
   const { from, to, tour = "ATP,WTA" } = req.query;
@@ -8,7 +8,7 @@ module.exports = async (req, res) => {
   if (tours.includes("WTA")) jobs.push(wtaTournaments(from, to));
   if (tours.includes("ATP")) jobs.push(atpTournaments(from, to));
   const settled = await Promise.allSettled(jobs);
-  const tournaments = settled.flatMap((s) => (s.status === "fulfilled" ? s.value : []));
+  const tournaments = settled.flatMap((s) => (s.status === "fulfilled" ? s.value : [])).filter((t) => !isHidden(t));
   const errors = settled.filter((s) => s.status === "rejected").map((s) => s.reason.message);
   tournaments.sort((a, b) => a.startDate.localeCompare(b.startDate) || a.tour.localeCompare(b.tour));
   res.setHeader("Cache-Control", "s-maxage=600, stale-while-revalidate=3600");

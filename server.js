@@ -7,6 +7,9 @@ const path = require("path");
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, "public");
+// Hand-maintained list of tournaments to remove; shared with the Vercel deployment.
+const HIDDEN_FILE = path.join(__dirname, "vercel-deploy", "data", "hidden.json");
+const { isHidden } = require("./vercel-deploy/lib/tennis");
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36";
@@ -227,7 +230,8 @@ async function handleApi(url, res) {
     if (tours.includes("WTA")) jobs.push(wtaTournaments(from, to));
     if (tours.includes("ATP")) jobs.push(atpTournaments(from, to));
     const settled = await Promise.allSettled(jobs);
-    const tournaments = settled.flatMap((s) => (s.status === "fulfilled" ? s.value : []));
+    const hidden = JSON.parse(fs.readFileSync(HIDDEN_FILE, "utf8")).tournaments || [];
+    const tournaments = settled.flatMap((s) => (s.status === "fulfilled" ? s.value : [])).filter((t) => !isHidden(t, hidden));
     const errors = settled.filter((s) => s.status === "rejected").map((s) => s.reason.message);
     tournaments.sort((a, b) => a.startDate.localeCompare(b.startDate) || a.tour.localeCompare(b.tour));
     return send(res, 200, { tournaments, errors });

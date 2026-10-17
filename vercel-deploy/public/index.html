@@ -443,7 +443,8 @@ function renderCalendar(list, q) {
 }
 
 function renderPlayers(t, q) {
-  const link = t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">Official page ↗</a>` : "";
+  const link = `<span class="note">ID ${esc(t.tour)} ${esc(t.id)}${t.year ? ` · ${esc(t.year)}` : ""}</span>`
+    + (t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">Official page ↗</a>` : "");
   const p = state.players.get(key(t));
   if (!p) return `<div class="detail-top"><span class="note">Loading player list…</span>${link}</div>`;
   if (p.error) return `<div class="detail-top"><span class="note">Couldn't load players: ${esc(p.error)}</span>${link}</div>`;

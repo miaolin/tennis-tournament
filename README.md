@@ -19,6 +19,7 @@ A small website that collects ATP and WTA tournament information (dates, venue, 
 server.js             Node server: serves public/ and the /api routes (local use)
 public/index.html     frontend
 vercel-deploy/        serverless version of the same app, deployed to Vercel
+vercel-deploy/data/hidden.json  tournaments removed by hand (see below)
 docs/data-sources.md  where the WTA and ATP data comes from
 CHANGELOG.md          release notes
 ```
@@ -41,6 +42,25 @@ vercel --prod   # production
 ```
 
 See [vercel-deploy/README.md](vercel-deploy/README.md). `vercel-deploy/` keeps its own copies of the frontend and data code, so changes to `public/index.html` or the fetchers in `server.js` need copying to `vercel-deploy/public/` and `vercel-deploy/lib/tennis.js`.
+
+## Removing wrong tournaments
+
+If a tournament's information is wrong, you can remove it for everyone by adding it to `vercel-deploy/data/hidden.json` (one file, used by both the local server and the Vercel deployment):
+
+```json
+{
+  "tournaments": [
+    { "tour": "WTA", "id": "1023", "year": 2026, "note": "wrong dates" },
+    { "tour": "ATP", "id": "10", "note": "hide every year" }
+  ]
+}
+```
+
+- `tour` and `id`: shown as "ID WTA 1023 · 2026" in the tournament's details on the site. ATP ids can be written with or without the year (`10` or `10-2026`).
+- `year` (optional): leave it out to hide the tournament in every year.
+- `note` (optional): why it's hidden.
+
+The local server applies changes on the next page reload. The live site applies them after a redeploy (`cd vercel-deploy && vercel --prod`).
 
 ## API
 
