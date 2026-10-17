@@ -7,6 +7,9 @@ const path = require("path");
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, "public");
+// Hand-maintained list of tournaments to remove; shared with the Vercel deployment.
+const HIDDEN_FILE = path.join(__dirname, "vercel-deploy", "data", "hidden.json");
+const { isHidden } = require("./vercel-deploy/lib/tennis");
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36";
@@ -217,7 +220,61 @@ function send(res, status, body, type = "application/json") {
   res.end(typeof body === "string" || Buffer.isBuffer(body) ? body : JSON.stringify(body));
 }
 
-async function handleApi(url, res) {
+// ---------------------------------------------------------------- Hidden tournaments (local editing)
+
+const readHidden = () => JSON.parse(fs.readFileSync(HIDDEN_FILE, "utf8"));
+const writeHidden = (data) => fs.writeFileSync(HIDDEN_FILE, JSON.stringify(data, null, 2) + "\n");
+const sameEntry = (a, b) => a.tour === b.tour && String(a.id) === String(b.id) && (a.year ?? null) === (b.year ?? null);
+
+// Only requests from this machine, addressed to localhost, may change the list
+// (blocks other devices on the network and DNS-rebinding pages).
+function isLocalRequest(req) {
+  const ip = req.socket.remoteAddress || "";
+  const host = (req.headers.host || "").replace(/:\d+$/, "");
+  return ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(ip) && ["localhost", "127.0.0.1", "[::1]"].includes(host);
+}
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", (c) => { body += c; if (body.length > 10_000) reject(new Error("Body too large")); });
+    req.on("end", () => resolve(body));
+    req.on("error", reject);
+  });
+}
+
+async function handleHidden(req, url, res) {
+  const local = isLocalRequest(req);
+  if (req.method === "GET") return send(res, 200, { editable: local, tournaments: local ? readHidden().tournaments || [] : [] });
+  if (!local) return send(res, 403, { error: "Editing is only allowed from this computer" });
+
+  if (req.method === "POST") {
+    if (!/^application\/json\b/.test(req.headers["content-type"] || "")) return send(res, 415, { error: "Send JSON" });
+    const b = JSON.parse(await readBody(req));
+    const entry = { tour: String(b.tour || "").toUpperCase(), id: String(b.id || "") };
+    if (!["ATP", "WTA"].includes(entry.tour) || !/^[\w-]{1,32}$/.test(entry.id)) return send(res, 400, { error: "tour must be ATP or WTA, and id is required" });
+    if (b.year != null) entry.year = Number(b.year);
+    if (b.name) entry.name = String(b.name).slice(0, 200);
+    if (b.note) entry.note = String(b.note).slice(0, 500);
+    const data = readHidden();
+    data.tournaments = data.tournaments || [];
+    if (!data.tournaments.some((h) => sameEntry(h, entry))) data.tournaments.push(entry);
+    writeHidden(data);
+    return send(res, 200, { tournaments: data.tournaments });
+  }
+
+  if (req.method === "DELETE") {
+    const target = { tour: (url.searchParams.get("tour") || "").toUpperCase(), id: url.searchParams.get("id") || "" };
+    if (url.searchParams.get("year")) target.year = Number(url.searchParams.get("year"));
+    const data = readHidden();
+    data.tournaments = (data.tournaments || []).filter((h) => !sameEntry(h, target));
+    writeHidden(data);
+    return send(res, 200, { tournaments: data.tournaments });
+  }
+  send(res, 405, { error: "Method not allowed" });
+}
+
+async function handleApi(req, url, res) {
   const q = url.searchParams;
   if (url.pathname === "/api/tournaments") {
     const from = q.get("from"), to = q.get("to");
@@ -227,7 +284,8 @@ async function handleApi(url, res) {
     if (tours.includes("WTA")) jobs.push(wtaTournaments(from, to));
     if (tours.includes("ATP")) jobs.push(atpTournaments(from, to));
     const settled = await Promise.allSettled(jobs);
-    const tournaments = settled.flatMap((s) => (s.status === "fulfilled" ? s.value : []));
+    const hidden = readHidden().tournaments || [];
+    const tournaments = settled.flatMap((s) => (s.status === "fulfilled" ? s.value : [])).filter((t) => !isHidden(t, hidden));
     const errors = settled.filter((s) => s.status === "rejected").map((s) => s.reason.message);
     tournaments.sort((a, b) => a.startDate.localeCompare(b.startDate) || a.tour.localeCompare(b.tour));
     return send(res, 200, { tournaments, errors });
@@ -241,6 +299,7 @@ async function handleApi(url, res) {
     }
     return send(res, 400, { error: "tour must be ATP or WTA" });
   }
+  if (url.pathname === "/api/hidden") return handleHidden(req, url, res);
   send(res, 404, { error: "Not found" });
 }
 
@@ -248,7 +307,7 @@ http
   .createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     try {
-      if (url.pathname.startsWith("/api/")) return await handleApi(url, res);
+      if (url.pathname.startsWith("/api/")) return await handleApi(req, url, res);
       const file = path.normalize(path.join(PUBLIC_DIR, url.pathname === "/" ? "index.html" : url.pathname));
       if (!file.startsWith(PUBLIC_DIR)) return send(res, 403, "Forbidden", "text/plain");
       fs.readFile(file, (err, buf) =>

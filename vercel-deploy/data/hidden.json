@@ -1,0 +1,4 @@
+{
+  "_help": "Tournaments removed from the site for everyone. Each entry: tour (ATP or WTA), id (shown in the tournament's details on the site), optional year (omit to hide it every year), optional note. The local server picks up changes on reload; the live site needs a redeploy.",
+  "tournaments": []
+}
