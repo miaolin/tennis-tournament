@@ -9,13 +9,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - ATP tournament levels (ATP 250 / 500 / Masters 1000, ATP Finals, Next Gen ATP Finals). ESPN doesn't provide them, so they come from a hand-maintained table in the server code, keyed by ESPN's tournament number.
 - Removing wrong tournaments by hand: tournaments listed in `vercel-deploy/data/hidden.json` are dropped by the server for every visitor. Each tournament's details now show its ID for use in that file. On the local site, a Delete button (click twice to confirm, with Undo) and a Hidden (n) list with Restore edit the file for you; the server only accepts these changes from the same computer, and the live site doesn't show the buttons.
-- Month filter: narrows the list to tournaments starting that month, or the calendar to that month's grid.
+- Month selector as a row of month tiles (All, then each month with its tournament count), set to the current month when the site opens. Earlier months are the archive: dimmed, set apart by a divider, and labeled Archive in their heading. The current month has a "now" dot. A month shows every tournament taking place in it, so one spanning two months appears in both.
 - Tournament type selector as large icon tiles, each with a count: All types (grid icon), Grand Slam (trophy), 1000 / 500 / 250 / 125 (the number in its level color), Finals (star). They follow the tour tab: ATP has no 125 tile and its 1000 tile is captioned ATP Masters; under All, 1000 covers WTA 1000 and ATP Masters 1000.
 - Tournament tiles in the list view: the city (or event name for Grand Slams and Finals) on a court-style background colored by surface (hard, clay, grass; tour color when the surface is unknown), with a level badge colored by tier and the start date.
 
 ### Changed
 
-- Filter bar is laid out in three rows: view, dates, month and search; then the tour as large logo-style tiles (ALL / ATP / WTA with a caption and count, filled with the tour color when selected); then the type tiles. On phones it scrolls away with the page instead of staying pinned.
+- Filter bar is laid out in three rows: view, dates, month and search; then the tour as large logo-style tiles (ALL / ATP / WTA with a caption and count, filled with the tour color when selected); then the type tiles. With four rows of tiles (month, tour, type), the filter bar now scrolls away with the page; the month bar stays pinned at the top.
+- The site always opens on the list view (it no longer remembers the last view used).
+- From/To date inputs replaced by a year switcher (‹ 2026 ›). The site shows one year at a time, January to December, opening on the current year and month; other years open on All months.
 - Calendar bars show the tournament level (for example WTA 1000, ATP 500, Grand Slam) instead of just the tour.
 - List view status is color-coded, with a colored label and a stripe on the card's left edge: green for in progress (with a pulsing dot), blue for upcoming, grey for completed.
 - Month headings are full-width bars with more contrast (larger full-strength text, accent stripe, tournament count in a pill) that stick below the filter bar while you scroll, so the current month stays visible. The filter bar is now solid instead of slightly see-through.
