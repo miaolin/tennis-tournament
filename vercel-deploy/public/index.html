@@ -5,15 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tennis Tournaments</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:ital,wght@0,400;0,500;0,600;1,900&family=Oswald:wght@500;600&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #f4f1ea; --surface: #fffdf8; --ink: #1d2a24; --muted: #6b766f; --line: #e2ddd1;
-    --court: #1f5c46; --clay: #c4622d; --atp: #1f4e8c; --wta: #7a2d8c; --ball: #d7e84a;
+    --court: #1f5c46; --clay: #c4622d; --atp: #1f4e8c; --wta: #7a2d8c; --ball: #2ee86f;
+    --st-live: #1f9d63; --st-next: #2b6cc4; --st-done: #8a918d; --accent: var(--court);
+    --t1000: #a8821a; --t500: #5d736e; --t125: #8a918d; --gold: #c99a1e;
   }
   @media (prefers-color-scheme: dark) {
     :root { --bg: #111714; --surface: #18201c; --ink: #e8ece9; --muted: #93a099; --line: #2a3530;
-      --court: #5fb38f; --clay: #e08355; --atp: #7aa7e6; --wta: #c88ad6; }
+      --court: #5fb38f; --clay: #e08355; --atp: #7aa7e6; --wta: #c88ad6;
+      --st-live: #4cd18f; --st-next: #6fa8f0; --st-done: #7d8781; --accent: var(--court);
+      --t1000: #e2b93f; --t500: #9fb6b0; --t125: #8f9a94; --gold: #e2b93f; }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 Inter, system-ui, sans-serif; }
@@ -24,31 +28,114 @@
   h1 { font: 800 clamp(28px, 5vw, 42px)/1.05 Fraunces, Georgia, serif; margin: 0 0 6px; letter-spacing: -.5px; position: relative; z-index: 1; }
   header p { margin: 0; opacity: .85; position: relative; z-index: 1; }
 
-  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; padding: 16px; position: sticky; top: 0; z-index: 5;
-    background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+  .controls { display: flex; flex-direction: column; gap: 10px; padding: 16px 16px 12px; position: sticky; top: 0; z-index: 5;
+    background: var(--bg); border-bottom: 1px solid var(--line); }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+
+  /* Tour selector (second row): large logo-style tiles; filled with the tour color when selected */
+  .tabs { display: flex; gap: 8px; }
+  .tabs button { all: unset; box-sizing: border-box; cursor: pointer; position: relative; width: 132px; height: 72px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface);
+    transition: border-color .15s, transform .15s; }
+  .tabs button:hover { border-color: color-mix(in srgb, var(--tc) 60%, var(--line)); transform: translateY(-1px); }
+  .tabs button[data-tour="ALL"] { --tc: var(--court); --g1: #2f8a63; --g2: #1a4f3b; }
+  .tabs button[data-tour="ATP"] { --tc: var(--atp); --g1: #2d5f9e; --g2: #14325f; }
+  .tabs button[data-tour="WTA"] { --tc: var(--wta); --g1: #8a4a9e; --g2: #4a1d57; }
+  .tabs .mark { font: italic 900 26px/1 Inter, sans-serif; letter-spacing: -.05em; color: var(--tc); }
+  .tabs .sub { font: 600 11px Inter, sans-serif; color: var(--muted); }
+  .tabs .n { position: absolute; top: 6px; right: 9px; font: 600 11px Inter, sans-serif; color: var(--muted); }
+  .tabs button[aria-pressed="true"] { border-color: transparent; background: linear-gradient(135deg, var(--g1), var(--g2));
+    box-shadow: 0 4px 12px -4px var(--g2); }
+  .tabs button[aria-pressed="true"] .mark { color: #fff; }
+  .tabs button[aria-pressed="true"] :is(.sub, .n) { color: rgba(255,255,255,.8); }
+  .tabs button:focus-visible { outline: 2px solid var(--court); outline-offset: 2px; }
+  .chips button:focus-visible { outline: 2px solid var(--court); outline-offset: 2px; }
+  /* Tournament-type selector: large icon tiles */
+  .chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px; }
+  .chips button { all: unset; box-sizing: border-box; cursor: pointer; position: relative; flex: none; width: 104px; height: 92px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink);
+    transition: border-color .15s, background .15s, transform .15s; }
+  .chips button:hover { border-color: color-mix(in srgb, var(--ink) 35%, var(--line)); transform: translateY(-1px); }
+  .chips .ico { height: 38px; display: grid; place-items: center; }
+  .chips .ico svg { width: 34px; height: 34px; }
+  .chips .num { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+  .chips .num b { font: 600 32px/1 Oswald, "Arial Narrow", sans-serif; color: var(--tc); }
+  .chips .lbl { font: 600 12px Inter, sans-serif; white-space: nowrap; }
+  .chips .n { position: absolute; top: 6px; right: 8px; font: 600 11px Inter, sans-serif; color: var(--muted); }
+  .chips button[aria-pressed="true"] { border: 2px solid var(--tab, var(--accent)); background: color-mix(in srgb, var(--tab, var(--accent)) 16%, var(--surface)); }
+  .chips button.empty { opacity: .4; }
+  .chips[data-tour="ATP"] { --tab: var(--atp); --t250: var(--atp); }
+  .chips[data-tour="WTA"] { --tab: var(--wta); --t250: var(--wta); }
+  .chips[data-tour="ALL"] { --t250: var(--court); }
   .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
   .seg button { border: 0; background: none; padding: 8px 14px; font: 600 13px Inter, sans-serif; color: var(--muted); cursor: pointer; }
   .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
   label { display: flex; flex-direction: column; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); gap: 4px; }
-  input { font: 14px Inter, sans-serif; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+  input, select { font: 14px Inter, sans-serif; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
   .grow { flex: 1 1 200px; }
   .grow input { width: 100%; }
 
   main { padding: 8px 16px 60px; }
   .status { color: var(--muted); padding: 24px 0; }
   .month { margin-top: 26px; }
-  .month h2 { font: 600 13px Inter, sans-serif; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; }
+  /* Month bar: full width, sticks just below the filter bar while its month is on screen */
+  .month h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; padding: 10px 14px;
+    position: sticky; top: calc(var(--controls-h, 70px) - 1px); z-index: 4;
+    font: 700 15px Inter, sans-serif; text-transform: uppercase; letter-spacing: .08em; color: var(--ink);
+    background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border: 1px solid var(--line);
+    border-left: 5px solid var(--accent); border-radius: 10px;
+    /* first shadow is a solid backing so cards don't show around the rounded corners while stuck */
+    box-shadow: 0 -10px 0 var(--bg), 0 4px 10px -6px rgba(0,0,0,.35); }
+  .month h2 .count { margin-left: auto; font-size: 11px; font-weight: 600; letter-spacing: .06em; padding: 3px 9px; border-radius: 999px;
+    color: var(--ink); background: color-mix(in srgb, var(--ink) 10%, transparent); }
 
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 10px; overflow: hidden; }
   .card > button { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 14px 16px; }
   .card > button:focus-visible { outline: 2px solid var(--court); outline-offset: -2px; }
-  .tour { font: 800 12px Inter, sans-serif; color: #fff; border-radius: 6px; padding: 4px 7px; letter-spacing: .04em; }
-  .tour.ATP { background: var(--atp); } .tour.WTA { background: var(--wta); }
+
+  /* Tournament tile: court-colored top with the city, light strip with level badge and start date */
+  .tile { width: 136px; height: 88px; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column;
+    border: 2px solid #4fc79a; box-shadow: 0 2px 6px rgba(0,0,0,.18); --c1: #2f6db5; --c2: #1b4a86;
+    background:
+      linear-gradient(90deg, transparent calc(50% - 1px), rgba(255,255,255,.35) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
+      linear-gradient(transparent 11px, rgba(255,255,255,.3) 11px 13px, transparent 13px),
+      radial-gradient(circle at 82% 18%, rgba(255,255,255,.28), transparent 45%),
+      linear-gradient(135deg, var(--c1), var(--c2)); }
+  .tile.hard { --c1: #3a7bc8; --c2: #1d4f8f; }
+  .tile.clay { --c1: #d0703a; --c2: #9b4520; }
+  .tile.grass { --c1: #5b9c45; --c2: #2f6a2a; }
+  .tile.none.ATP { --c1: #2d5f9e; --c2: #14325f; }
+  .tile.none.WTA { --c1: #8a4a9e; --c2: #4a1d57; }
+  .tile-top { flex: 1; display: grid; place-items: center; padding: 4px 6px; text-align: center;
+    background: rgba(255,255,255,.12); backdrop-filter: blur(1px);
+    color: #fff; font: 600 19px/1 Oswald, "Arial Narrow", sans-serif; text-transform: uppercase; letter-spacing: .02em;
+    text-shadow: 0 1px 3px rgba(0,0,0,.45); overflow-wrap: anywhere; }
+  .tile-top.md { font-size: 15px; } .tile-top.sm { font-size: 12.5px; }
+  .tile-bot { height: 26px; flex: none; background: #f7f5ef; display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 0 6px;
+    font: 500 13px Oswald, "Arial Narrow", sans-serif; color: #1d2a24; }
+  .lvl { display: inline-flex; align-items: baseline; gap: 2px; font: italic 900 13px/1 Inter, sans-serif; letter-spacing: -.04em; white-space: nowrap; }
+  .lvl.mark.WTA { color: #3b1a6e; } .lvl.mark.ATP { color: #10316b; }
+  .lvl.pill { color: #fff; border-radius: 3px; padding: 3px 4px 2px; }
+  .lvl.pill small { font-size: 11px; letter-spacing: -.02em; }
+  .lvl.t1000 { background: #b8901f; } .lvl.t500 { background: #6f8580; }
+  .lvl.t250.WTA { background: #8a5cc2; } .lvl.t250.ATP { background: #3a6fb8; }
+  .lvl.t125 { background: none; color: #6f8580; box-shadow: inset 0 0 0 1.5px #9aa9a5; }
+  .tile-date { white-space: nowrap; }
+  .card.past .tile { filter: saturate(.5); opacity: .8; }
   .name { font: 600 17px/1.25 Fraunces, Georgia, serif; }
   .meta { color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 2px; }
   .dates { text-align: right; font-size: 13px; font-weight: 600; white-space: nowrap; }
-  .dates small { display: block; font-weight: 500; color: var(--muted); }
-  .live { color: var(--clay); }
+  /* Status: colored pill plus a stripe on the card's left edge */
+  .status-pill { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; color: var(--st); background: color-mix(in srgb, var(--st) 15%, transparent); }
+  .status-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .st-live { --st: var(--st-live); } .st-next { --st: var(--st-next); } .st-done { --st: var(--st-done); }
+  .st-live .status-pill::before { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .25; } }
+  @media (prefers-reduced-motion: reduce) { .st-live .status-pill::before { animation: none; } }
+  .card { border-left: 4px solid var(--st, var(--line)); }
   .chev { transition: transform .2s; display: inline-block; margin-left: 6px; color: var(--muted); }
   .card.open .chev { transform: rotate(90deg); }
 
@@ -86,7 +173,14 @@
   .cal-ev small { font-weight: 800; opacity: .8; margin-right: 5px; }
 
   @media (max-width: 560px) {
-    .card > button { grid-template-columns: auto 1fr; }
+    .controls { position: static; }
+    .chips button { width: 88px; height: 80px; gap: 4px; }
+    .tabs button { flex: 1; width: auto; height: 64px; }
+    .tabs .mark { font-size: 22px; }
+    .chips .num b { font-size: 27px; }
+    .card > button { grid-template-columns: auto 1fr; gap: 12px; }
+    .tile { width: 112px; height: 76px; }
+    .tile-top { font-size: 16px; } .tile-top.md { font-size: 13px; } .tile-top.sm { font-size: 11px; }
     .dates { grid-column: 2; text-align: left; }
     .cal-head span { padding: 6px 4px; font-size: 10px; }
     .cal-day { padding: 4px 4px 2px; font-size: 11px; }
@@ -104,25 +198,29 @@
 </header>
 
 <div class="controls wrap">
-  <div class="seg" id="viewSeg" role="group" aria-label="View">
-    <button data-view="list" aria-pressed="true">List</button>
-    <button data-view="calendar" aria-pressed="false">Calendar</button>
+  <div class="row">
+    <div class="seg" id="viewSeg" role="group" aria-label="View">
+      <button data-view="list" aria-pressed="true">List</button>
+      <button data-view="calendar" aria-pressed="false">Calendar</button>
+    </div>
+    <label>From <input type="date" id="from"></label>
+    <label>To <input type="date" id="to"></label>
+    <label>Month <select id="month"><option value="">All months</option></select></label>
+    <label class="grow">Search <input type="search" id="q" placeholder="Tournament, city, country or loaded player…"></label>
   </div>
-  <div class="seg" id="tourSeg" role="group" aria-label="Tour">
-    <button data-tour="ALL" aria-pressed="true">All</button>
-    <button data-tour="ATP" aria-pressed="false">ATP</button>
-    <button data-tour="WTA" aria-pressed="false">WTA</button>
+  <div class="tabs" id="tourSeg" role="group" aria-label="Tour">
+    <button data-tour="ALL" aria-pressed="true"><span class="n"></span><span class="mark">ALL</span><span class="sub">Both tours</span></button>
+    <button data-tour="ATP" aria-pressed="false"><span class="n"></span><span class="mark">ATP</span><span class="sub">Men's tour</span></button>
+    <button data-tour="WTA" aria-pressed="false"><span class="n"></span><span class="mark">WTA</span><span class="sub">Women's tour</span></button>
   </div>
-  <label>From <input type="date" id="from"></label>
-  <label>To <input type="date" id="to"></label>
-  <label class="grow">Search <input type="search" id="q" placeholder="Tournament, city, country or loaded player…"></label>
+  <div class="chips" id="typeChips" role="group" aria-label="Tournament type"></div>
 </div>
 
 <main class="wrap" id="list"><div class="status">Loading tournaments…</div></main>
 
 <script>
 const $ = (s) => document.querySelector(s);
-const state = { tour: "ALL", view: "list", tournaments: [], players: new Map(), open: new Set(), selected: null };
+const state = { tour: "ALL", type: "", view: "list", tournaments: [], players: new Map(), open: new Set(), selected: null };
 try { if (localStorage.getItem("view") === "calendar") state.view = "calendar"; } catch {}
 const today = new Date();
 // Default range: start of this month through the end of the month after next.
@@ -133,6 +231,26 @@ $("#to").value = localDay(new Date(today.getFullYear(), today.getMonth() + 3, 0)
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fmt = (d, opts) => new Date(d + "T12:00:00").toLocaleDateString(undefined, opts);
 const key = (t) => `${t.tour}:${t.id}`;
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+// List-view tile: city (or event name for Grand Slams/Finals), surface-colored background, level badge and start date.
+function tileHTML(t) {
+  const finals = /finals/i.test(t.level || "");
+  const title = finals ? (/next gen/i.test(t.level) ? "Next Gen Finals" : `${t.tour} Finals`)
+    : t.level === "Grand Slam" || !t.city ? t.name : t.city;
+  const size = title.length > 20 ? "sm" : title.length > 11 ? "md" : "";
+  const sf = (t.surface || "").toLowerCase();
+  const surface = sf.includes("clay") ? "clay" : sf.includes("grass") ? "grass" : sf.includes("hard") || sf.includes("carpet") ? "hard" : "none";
+  const num = (t.level || "").match(/(\d+)$/);
+  const badge = num
+    ? `<span class="lvl pill t${num[1]} ${t.tour}">${t.tour}<small>${num[1]}</small></span>`
+    : `<span class="lvl mark ${t.tour}">${t.tour}</span>`;
+  const day = `${t.startDate.slice(8)} ${MONTHS[+t.startDate.slice(5, 7) - 1]}`;
+  return `<span class="tile ${surface} ${t.tour}" aria-hidden="true">
+    <span class="tile-top ${size}">${esc(title)}</span>
+    <span class="tile-bot">${badge}<span class="tile-date">${day}</span></span>
+  </span>`;
+}
 // Calendar bar label: "WTA 1000", "WTA Finals", "Grand Slam", or just the tour when the source has no level (most ATP events).
 const levelLabel = (t) => !t.level ? t.tour : t.level.startsWith(t.tour) || t.level === "Grand Slam" ? t.level : `${t.tour} ${t.level}`;
 const ENTRY = { M: "Main draw", Q: "Qualifying", WC: "Wildcards", LL: "Lucky losers", ALT: "Alternates", PR: "Protected ranking", SE: "Special exempt" };
@@ -145,6 +263,11 @@ async function load() {
     if (!r.ok) throw new Error(data.error);
     state.tournaments = data.tournaments;
     if (data.errors.length) console.warn(data.errors);
+    const sel = $("#month").value;
+    // Offer every month in the range plus any earlier start month (tournaments that began before "From" but overlap it).
+    const months = [...new Set([...rangeMonths(), ...state.tournaments.map((t) => t.startDate.slice(0, 7))])].sort();
+    $("#month").innerHTML = '<option value="">All months</option>' + months
+      .map((m) => `<option value="${m}" ${m === sel ? "selected" : ""}>${fmt(m + "-01", { month: "long", year: "numeric" })}</option>`).join("");
     render();
   } catch (e) {
     $("#list").innerHTML = `<div class="status">Couldn't load tournaments: ${esc(e.message)}</div>`;
@@ -159,9 +282,73 @@ function matches(t, q) {
   return !!p && [...p.singles, ...p.doubles].some((e) => e.names.join(" ").toLowerCase().includes(q));
 }
 
+// Months (YYYY-MM) covered by the From/To range.
+function rangeMonths() {
+  const from = $("#from").value, to = $("#to").value, out = [];
+  for (let y = +from.slice(0, 4), m = +from.slice(5, 7); `${y}-${String(m).padStart(2, "0")}` <= to.slice(0, 7); m === 12 ? (y++, m = 1) : m++) {
+    out.push(`${y}-${String(m).padStart(2, "0")}`);
+  }
+  return out;
+}
+
+// Tournament type across both tours: "1000" covers WTA 1000 and ATP Masters 1000, etc.
+function tier(t) {
+  if (t.level === "Grand Slam") return "gs";
+  if (/finals/i.test(t.level || "")) return "finals";
+  const n = (t.level || "").match(/(\d+)$/);
+  return n ? n[1] : "";
+}
+
+// Type chips offered under each tour tab, as [tier, label].
+const TYPES = {
+  ALL: [["gs", "Grand Slam"], ["1000", "1000"], ["500", "500"], ["250", "250"], ["125", "125"], ["finals", "Finals"]],
+  ATP: [["gs", "Grand Slam"], ["1000", "Masters 1000"], ["500", "ATP 500"], ["250", "ATP 250"], ["finals", "Finals"]],
+  WTA: [["gs", "Grand Slam"], ["1000", "WTA 1000"], ["500", "WTA 500"], ["250", "WTA 250"], ["125", "WTA 125"], ["finals", "Finals"]],
+};
+
+const TYPE_ICONS = {
+  all: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" style="color:var(--muted)">
+    <rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/>
+    <rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>`,
+  trophy: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--gold)">
+    <path d="M7 4h10v5a5 5 0 0 1-10 0V4z" fill="currentColor" fill-opacity=".25"/><path d="M7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"/>
+    <path d="M12 14v4M8 20h8"/></svg>`,
+  star: `<svg viewBox="0 0 24 24" fill="currentColor" fill-opacity=".25" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" style="color:var(--ink)">
+    <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>`,
+};
+
+function renderTypeChips(pool) {
+  const types = TYPES[state.tour];
+  if (state.type && !types.some(([v]) => v === state.type)) state.type = "";
+  const icon = (v) =>
+    v === "" ? TYPE_ICONS.all
+    : v === "gs" ? TYPE_ICONS.trophy
+    : v === "finals" ? TYPE_ICONS.star
+    : `<span class="num" style="--tc:var(--t${v})"><b>${v}</b></span>`;
+  // Number tiles already show the level, so their caption names the tour instead.
+  const caption = (v, label) => !/^\d+$/.test(v) ? label
+    : state.tour === "ALL" ? "WTA & ATP" : state.tour === "ATP" && v === "1000" ? "ATP Masters" : state.tour;
+  const chip = (v, label, n) =>
+    `<button data-type="${v}" aria-pressed="${state.type === v}" class="${n ? "" : "empty"}" aria-label="${esc(label)}, ${n} tournaments">
+      <span class="n">${n}</span><span class="ico">${icon(v)}</span><span class="lbl">${esc(caption(v, label))}</span></button>`;
+  $("#typeChips").dataset.tour = state.tour;
+  $("#typeChips").innerHTML = chip("", "All types", pool.length)
+    + types.map(([v, label]) => chip(v, label, pool.filter((t) => tier(t) === v).length)).join("");
+}
+
 function render() {
   const q = $("#q").value.trim().toLowerCase();
-  const list = state.tournaments.filter((t) => (state.tour === "ALL" || t.tour === state.tour) && matches(t, q));
+  const month = $("#month").value;
+  // Tour tile counts: tournaments matching the search and month, before the tour and type filters.
+  const counted = state.tournaments.filter((t) => matches(t, q) && (!month || t.startDate.slice(0, 7) === month));
+  document.querySelectorAll("#tourSeg button").forEach((b) => {
+    b.querySelector(".n").textContent = counted.filter((t) => b.dataset.tour === "ALL" || t.tour === b.dataset.tour).length;
+  });
+  // The list shows tournaments starting in the chosen month; the calendar shows that month's grid (see renderCalendar).
+  const pool = state.tournaments.filter((t) => (state.tour === "ALL" || t.tour === state.tour) && matches(t, q)
+    && (!month || state.view === "calendar" || t.startDate.slice(0, 7) === month));
+  renderTypeChips(month ? pool.filter((t) => t.startDate.slice(0, 7) === month) : pool);
+  const list = pool.filter((t) => !state.type || tier(t) === state.type);
   if (!list.length) { $("#list").innerHTML = '<div class="status">No tournaments match.</div>'; return; }
   $("#list").innerHTML = state.view === "calendar" ? renderCalendar(list, q) : renderList(list, q);
 }
@@ -175,29 +362,29 @@ function renderList(list, q) {
   }
   return [...months].map(([m, ts]) => `
     <section class="month">
-      <h2>${fmt(m + "-01", { month: "long", year: "numeric" })} · ${ts.length} tournament${ts.length === 1 ? "" : "s"}</h2>
+      <h2>${fmt(m + "-01", { month: "long", year: "numeric" })}<span class="count">${ts.length} tournament${ts.length === 1 ? "" : "s"}</span></h2>
       ${ts.map((t) => cardHTML(t, q)).join("")}
     </section>`).join("");
 }
 
 function cardHTML(t, q) {
   const now = localDay(today);
-  const live = t.startDate <= now && now <= t.endDate;
+  const status = t.endDate < now ? ["done", "Completed"] : t.startDate <= now ? ["live", "In progress"] : ["next", "Upcoming"];
   const k = key(t);
-  return `<article class="card ${state.open.has(k) ? "open" : ""}" data-key="${esc(k)}">
+  return `<article class="card st-${status[0]} ${state.open.has(k) ? "open" : ""} ${status[0] === "done" ? "past" : ""}" data-key="${esc(k)}">
     <button aria-expanded="${state.open.has(k)}">
-      <span class="tour ${t.tour}">${t.tour}</span>
+      ${tileHTML(t)}
       <span>
         <div class="name">${esc(t.name)}</div>
         <div class="meta">
           <span>📍 ${esc([t.city, t.country].filter(Boolean).join(", ") || "TBA")}</span>
-          ${t.level ? `<span>${esc(t.level)}</span>` : ""}
+          <span>${esc(levelLabel(t))}</span>
           ${t.surface ? `<span>${esc(t.surface)}</span>` : ""}
           ${t.prizeMoney ? `<span>${esc(t.prizeMoney)}</span>` : ""}
         </div>
       </span>
       <span class="dates">${fmt(t.startDate, { month: "short", day: "numeric" })} – ${fmt(t.endDate, { month: "short", day: "numeric" })}<span class="chev">›</span>
-        <small class="${live ? "live" : ""}">${live ? "● In progress" : t.endDate < now ? "Completed" : "Upcoming"}</small></span>
+        <br><span class="status-pill">${status[1]}</span></span>
     </button>
     <div class="detail">${state.open.has(k) ? renderPlayers(t, q) : ""}</div>
   </article>`;
@@ -209,11 +396,7 @@ const numDay = (n) => new Date(n * 864e5).toISOString().slice(0, 10);
 
 function renderCalendar(list, q) {
   const now = localDay(today);
-  const from = $("#from").value, to = $("#to").value;
-  const months = [];
-  for (let y = +from.slice(0, 4), m = +from.slice(5, 7); `${y}-${String(m).padStart(2, "0")}` <= to.slice(0, 7); m === 12 ? (y++, m = 1) : m++) {
-    months.push(`${y}-${String(m).padStart(2, "0")}`);
-  }
+  const months = $("#month").value ? [$("#month").value] : rangeMonths();
   const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => `<span>${d}</span>`).join("");
   const sel = state.selected && list.find((t) => key(t) === state.selected.key);
 
@@ -250,7 +433,7 @@ function renderCalendar(list, q) {
     }
     const count = list.filter((t) => t.startDate.slice(0, 7) === ym).length;
     return `<section class="month">
-      <h2>${fmt(ym + "-01", { month: "long", year: "numeric" })} · ${count} tournament${count === 1 ? "" : "s"}</h2>
+      <h2>${fmt(ym + "-01", { month: "long", year: "numeric" })}<span class="count">${count} tournament${count === 1 ? "" : "s"}</span></h2>
       <div class="cal"><div class="cal-head">${weekdays}</div>${weeks}</div>
       ${sel && state.selected.month === ym ? cardHTML(sel, q) : ""}
     </section>`;
@@ -356,6 +539,16 @@ $("#list").addEventListener("click", (e) => {
 $("#from").addEventListener("change", load);
 $("#to").addEventListener("change", load);
 $("#q").addEventListener("input", render);
+$("#month").addEventListener("change", render);
+$("#typeChips").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  state.type = b.dataset.type;
+  render();
+});
+// Keep the month bars docked right under the sticky filter bar, whose height changes when it wraps.
+new ResizeObserver(([e]) => document.documentElement.style.setProperty("--controls-h",
+  getComputedStyle(e.target).position === "sticky" ? `${e.target.getBoundingClientRect().height}px` : "1px"))
+  .observe(document.querySelector(".controls"));
 load();
 </script>
 </body>
