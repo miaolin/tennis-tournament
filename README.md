@@ -45,7 +45,11 @@ See [vercel-deploy/README.md](vercel-deploy/README.md). `vercel-deploy/` keeps i
 
 ## Removing wrong tournaments
 
-If a tournament's information is wrong, you can remove it for everyone by adding it to `vercel-deploy/data/hidden.json` (one file, used by both the local server and the Vercel deployment):
+If a tournament's information is wrong, you can remove it for everyone. Removed tournaments are listed in `vercel-deploy/data/hidden.json`, one file used by both the local server and the Vercel deployment.
+
+**From the local site (easiest):** run `npm start`, open the tournament's details and click **Delete**, then click again to confirm. An Undo notice appears for a few seconds. **Hidden (n)** in the filter bar lists everything deleted, with a Restore button for each. The local server writes these changes to `hidden.json`. It only accepts them from your own computer, and the live site doesn't show these buttons.
+
+**By hand:** edit the file directly:
 
 ```json
 {
@@ -60,7 +64,7 @@ If a tournament's information is wrong, you can remove it for everyone by adding
 - `year` (optional): leave it out to hide the tournament in every year.
 - `note` (optional): why it's hidden.
 
-The local server applies changes on the next page reload. The live site applies them after a redeploy (`cd vercel-deploy && vercel --prod`).
+The local server applies changes on the next page reload. To publish them to the live site, commit `hidden.json` and redeploy (`cd vercel-deploy && vercel --prod`).
 
 ## API
 

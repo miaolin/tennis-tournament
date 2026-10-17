@@ -20,6 +20,7 @@
       --t1000: #e2b93f; --t500: #9fb6b0; --t125: #8f9a94; --gold: #e2b93f; }
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 Inter, system-ui, sans-serif; }
   header { background: var(--court); color: #fff; padding: 28px 16px 22px; position: relative; overflow: hidden; }
   header::after { content: ""; position: absolute; inset: auto -40px -60px auto; width: 180px; height: 180px; border-radius: 50%;
@@ -150,6 +151,24 @@
   .players li { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; border-bottom: 1px dashed var(--line); font-size: 14px; }
   .players .cc { font-size: 11px; font-weight: 600; color: var(--muted); min-width: 32px; }
   .players .seed { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--clay); }
+  /* Local editing: delete button, hidden list, undo toast (only shown when the local server allows editing) */
+  .del-btn, .hidden-btn, .restore-btn, .toast button { all: unset; cursor: pointer; font: 600 12px Inter, sans-serif;
+    padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); white-space: nowrap; }
+  .del-btn { color: #d9534f; border-color: color-mix(in srgb, #d9534f 45%, var(--line)); }
+  .del-btn.armed { background: #d9534f; border-color: #d9534f; color: #fff; }
+  .hidden-btn { align-self: end; padding: 8px 14px; }
+  :is(.del-btn, .hidden-btn, .restore-btn, .toast button):focus-visible { outline: 2px solid var(--court); outline-offset: 2px; }
+  .hidden-panel { padding: 14px 16px 0; }
+  .hidden-panel h2 { font: 700 13px Inter, sans-serif; text-transform: uppercase; letter-spacing: .08em; margin: 0 0 8px; }
+  .hidden-panel ul { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  .hidden-panel li { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--line); }
+  .hidden-panel li:first-child { border-top: 0; }
+  .hidden-panel li > span { flex: 1; min-width: 0; }
+  .hidden-panel .note { display: block; }
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 20; display: flex; align-items: center; gap: 14px;
+    padding: 10px 12px 10px 16px; border-radius: 12px; background: var(--ink); color: var(--bg); font: 500 14px Inter, sans-serif;
+    box-shadow: 0 8px 24px rgba(0,0,0,.3); max-width: calc(100vw - 32px); }
+  .toast button { background: transparent; color: inherit; border-color: color-mix(in srgb, var(--bg) 40%, transparent); }
   mark { background: var(--ball); color: #1d2a24; border-radius: 3px; padding: 0 2px; }
 
   .legend { display: flex; gap: 14px; align-items: center; font-size: 12px; color: var(--muted); margin-top: 18px; }
@@ -207,6 +226,7 @@
     <label>To <input type="date" id="to"></label>
     <label>Month <select id="month"><option value="">All months</option></select></label>
     <label class="grow">Search <input type="search" id="q" placeholder="Tournament, city, country or loaded player…"></label>
+    <button id="hiddenBtn" class="hidden-btn" aria-expanded="false" hidden>Hidden (0)</button>
   </div>
   <div class="tabs" id="tourSeg" role="group" aria-label="Tour">
     <button data-tour="ALL" aria-pressed="true"><span class="n"></span><span class="mark">ALL</span><span class="sub">Both tours</span></button>
@@ -216,11 +236,12 @@
   <div class="chips" id="typeChips" role="group" aria-label="Tournament type"></div>
 </div>
 
+<section class="wrap hidden-panel" id="hiddenPanel" hidden></section>
 <main class="wrap" id="list"><div class="status">Loading tournaments…</div></main>
 
 <script>
 const $ = (s) => document.querySelector(s);
-const state = { tour: "ALL", type: "", view: "list", tournaments: [], players: new Map(), open: new Set(), selected: null };
+const state = { tour: "ALL", type: "", view: "list", editable: false, hidden: [], tournaments: [], players: new Map(), open: new Set(), selected: null };
 try { if (localStorage.getItem("view") === "calendar") state.view = "calendar"; } catch {}
 const today = new Date();
 // Default range: start of this month through the end of the month after next.
@@ -444,7 +465,8 @@ function renderCalendar(list, q) {
 
 function renderPlayers(t, q) {
   const link = `<span class="note">ID ${esc(t.tour)} ${esc(t.id)}${t.year ? ` · ${esc(t.year)}` : ""}</span>`
-    + (t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">Official page ↗</a>` : "");
+    + (t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">Official page ↗</a>` : "")
+    + (state.editable ? `<button class="del-btn" data-del="${esc(key(t))}">Delete</button>` : "");
   const p = state.players.get(key(t));
   if (!p) return `<div class="detail-top"><span class="note">Loading player list…</span>${link}</div>`;
   if (p.error) return `<div class="detail-top"><span class="note">Couldn't load players: ${esc(p.error)}</span>${link}</div>`;
@@ -530,8 +552,99 @@ $("#viewSeg").addEventListener("click", (e) => {
   render();
 });
 setView(state.view);
+// ---------------------------------------------------------------- Local editing (hidden tournaments)
+// The local server answers /api/hidden with editable: true; the live site has no such route, so nothing shows there.
+
+async function loadHidden() {
+  try {
+    const r = await fetch("/api/hidden");
+    const data = r.ok ? await r.json() : { editable: false, tournaments: [] };
+    state.editable = !!data.editable;
+    state.hidden = data.tournaments || [];
+  } catch { state.editable = false; state.hidden = []; }
+  renderHiddenPanel();
+}
+
+function renderHiddenPanel() {
+  const btn = $("#hiddenBtn"), panel = $("#hiddenPanel");
+  btn.hidden = !state.editable;
+  btn.textContent = `Hidden (${state.hidden.length})`;
+  const open = state.editable && btn.getAttribute("aria-expanded") === "true";
+  panel.hidden = !open;
+  if (!open) return;
+  panel.innerHTML = `<h2>Deleted tournaments</h2>` + (state.hidden.length
+    ? `<ul>${state.hidden.map((h, i) => `<li><span><strong>${esc(h.name || `${h.tour} ${h.id}`)}</strong>
+        <span class="note">ID ${esc(h.tour)} ${esc(h.id)}${h.year ? ` · ${esc(h.year)}` : " · every year"}${h.note ? ` · ${esc(h.note)}` : ""}</span></span>
+        <button class="restore-btn" data-restore="${i}">Restore</button></li>`).join("")}</ul>`
+    : `<p class="note">Nothing deleted. Use Delete in a tournament's details to remove it.</p>`);
+}
+
+async function deleteTournament(t) {
+  const entry = { tour: t.tour, id: t.id, year: t.year, name: t.name };
+  try {
+    const r = await fetch("/api/hidden", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(entry) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error);
+    state.hidden = data.tournaments;
+  } catch (e) { return toast(`Couldn't delete: ${e.message}`); }
+  state.tournaments = state.tournaments.filter((x) => key(x) !== key(t));
+  state.open.delete(key(t));
+  if (state.selected && state.selected.key === key(t)) state.selected = null;
+  renderHiddenPanel();
+  render();
+  toast(`Deleted ${t.name}`, () => restore(entry));
+}
+
+async function restore(entry) {
+  const params = new URLSearchParams({ tour: entry.tour, id: entry.id });
+  if (entry.year != null) params.set("year", entry.year);
+  try {
+    const r = await fetch(`/api/hidden?${params}`, { method: "DELETE" });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error);
+    state.hidden = data.tournaments;
+  } catch (e) { return toast(`Couldn't restore: ${e.message}`); }
+  renderHiddenPanel();
+  load();
+}
+
+let toastTimer;
+function toast(text, undo) {
+  document.querySelector(".toast")?.remove();
+  clearTimeout(toastTimer);
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.setAttribute("role", "status");
+  el.innerHTML = `<span>${esc(text)}</span>${undo ? "<button>Undo</button>" : ""}`;
+  if (undo) el.querySelector("button").addEventListener("click", () => { el.remove(); undo(); });
+  document.body.append(el);
+  toastTimer = setTimeout(() => el.remove(), 6000);
+}
+
+$("#hiddenBtn").addEventListener("click", (e) => {
+  e.currentTarget.setAttribute("aria-expanded", e.currentTarget.getAttribute("aria-expanded") !== "true");
+  renderHiddenPanel();
+});
+$("#hiddenPanel").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-restore]");
+  if (b) restore(state.hidden[+b.dataset.restore]);
+});
+
 $("#list").addEventListener("click", (e) => {
   if (e.target.closest("a")) return;
+  const del = e.target.closest(".del-btn");
+  if (del) {
+    // Two-step delete: the first click arms the button for 3 seconds, the second deletes.
+    if (!del.classList.contains("armed")) {
+      del.classList.add("armed");
+      del.textContent = "Click again to delete";
+      setTimeout(() => { del.classList.remove("armed"); del.textContent = "Delete"; }, 3000);
+      return;
+    }
+    const t = state.tournaments.find((x) => key(x) === del.dataset.del);
+    if (t) deleteTournament(t);
+    return;
+  }
   const ev = e.target.closest(".cal-ev");
   if (ev) return select(ev);
   const btn = e.target.closest(".card > button");
@@ -550,6 +663,7 @@ $("#typeChips").addEventListener("click", (e) => {
 new ResizeObserver(([e]) => document.documentElement.style.setProperty("--controls-h",
   getComputedStyle(e.target).position === "sticky" ? `${e.target.getBoundingClientRect().height}px` : "1px"))
   .observe(document.querySelector(".controls"));
+loadHidden();
 load();
 </script>
 </body>

@@ -8,7 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 
 - ATP tournament levels (ATP 250 / 500 / Masters 1000, ATP Finals, Next Gen ATP Finals). ESPN doesn't provide them, so they come from a hand-maintained table in the server code, keyed by ESPN's tournament number.
-- Removing wrong tournaments by hand: tournaments listed in `vercel-deploy/data/hidden.json` are dropped by the server for every visitor. Each tournament's details now show its ID for use in that file.
+- Removing wrong tournaments by hand: tournaments listed in `vercel-deploy/data/hidden.json` are dropped by the server for every visitor. Each tournament's details now show its ID for use in that file. On the local site, a Delete button (click twice to confirm, with Undo) and a Hidden (n) list with Restore edit the file for you; the server only accepts these changes from the same computer, and the live site doesn't show the buttons.
 - Month filter: narrows the list to tournaments starting that month, or the calendar to that month's grid.
 - Tournament type selector as large icon tiles, each with a count: All types (grid icon), Grand Slam (trophy), 1000 / 500 / 250 / 125 (the number in its level color), Finals (star). They follow the tour tab: ATP has no 125 tile and its 1000 tile is captioned ATP Masters; under All, 1000 covers WTA 1000 and ATP Masters 1000.
 - Tournament tiles in the list view: the city (or event name for Grand Slams and Finals) on a court-style background colored by surface (hard, clay, grass; tour color when the surface is unknown), with a level badge colored by tier and the start date.
