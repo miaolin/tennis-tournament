@@ -378,8 +378,10 @@ function renderTypeChips(pool) {
     + types.map(([v, label]) => chip(v, label, pool.filter((t) => tier(t) === v).length)).join("");
 }
 
-// A tournament is "in" a month if any of its days fall in it (e.g. Sep 30 – Oct 11 counts for both).
-const inMonth = (t, m) => t.startDate.slice(0, 7) <= m && t.endDate.slice(0, 7) >= m;
+// Each tournament belongs to exactly one month: the month it starts in (Sep 28 – Oct 4 is September).
+// One that started the previous year (e.g. a late-December start) goes under January of the year shown.
+const monthOf = (t) => (t.startDate.slice(0, 4) < String(state.year) ? `${state.year}-01` : t.startDate.slice(0, 7));
+const inMonth = (t, m) => monthOf(t) === m;
 const monthTitle = (m) => fmt(m + "-01", { month: "long", year: "numeric" }) + (m < thisMonth ? '<span class="arch">Archive</span>' : "");
 
 // Month tiles: All, then each month in order; earlier months are the archive. Counts follow the other filters.
@@ -427,11 +429,10 @@ function render() {
 }
 
 function renderList(list, q) {
-  // With a month chosen, everything taking place in it goes under that one heading; otherwise group by start month.
-  const chosen = state.month;
+  // Group by start month, so each tournament appears under one heading only.
   const months = new Map();
   for (const t of list) {
-    const m = chosen || (t.startDate.slice(0, 4) < String(state.year) ? `${state.year}-01` : t.startDate.slice(0, 7));
+    const m = monthOf(t);
     if (!months.has(m)) months.set(m, []);
     months.get(m).push(t);
   }
