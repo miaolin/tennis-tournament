@@ -6,9 +6,10 @@ const CACHE_TTL_MS = 10 * 60 * 1000;
 
 const cache = new Map();
 
-async function getJSON(url) {
+// `fresh` skips the cached copy (used by the player list's Update button) but still refreshes the cache.
+async function getJSON(url, fresh = false) {
   const hit = cache.get(url);
-  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
+  if (!fresh && hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
   const res = await fetch(url, { headers: { "User-Agent": UA, Accept: "application/json" } });
   if (!res.ok) throw new Error(`Upstream ${res.status} for ${url}`);
   const data = await res.json();
@@ -53,8 +54,8 @@ async function wtaTournaments(from, to) {
   });
 }
 
-async function wtaPlayers(id, year) {
-  const data = await getJSON(`${WTA_API}/${id}/${year}/players`);
+async function wtaPlayers(id, year, fresh = false) {
+  const data = await getJSON(`${WTA_API}/${id}/${year}/players`, fresh);
   const events = { singles: [], doubles: [] };
   for (const ev of data.events || []) {
     const key = ev.eventTypeCode === "LS" ? "singles" : ev.eventTypeCode === "LD" ? "doubles" : null;
@@ -170,8 +171,8 @@ async function atpTournaments(from, to) {
   });
 }
 
-async function atpPlayers(id, start, end) {
-  const data = await getJSON(`${ESPN_ATP}?dates=${ymd(start)}-${ymd(end)}`);
+async function atpPlayers(id, start, end, fresh = false) {
+  const data = await getJSON(`${ESPN_ATP}?dates=${ymd(start)}-${ymd(end)}`, fresh);
   const ev = (data.events || []).find((e) => e.id === id);
   const result = { source: "ESPN draw (available once the draw is made)", singles: [], doubles: [] };
   if (!ev) return result;

@@ -12,6 +12,7 @@ A small website that collects ATP and WTA tournament information (dates, venue, 
 - Month tiles to pick a month (or All) of the selected year; opens on the current month, with earlier months shown as the archive
 - Search by tournament, city or country, plus players in any tournament you've opened
 - Click a tournament to load its player list: singles and doubles, grouped into main draw and qualifying, with seeds
+- Keep player lists current: **Update** reloads a list from the source, **Auto-update** reloads it every 5 minutes while open, and a summary shows who withdrew, was added or moved since you first opened it
 - Link to each tournament's official page
 
 ## Project layout
@@ -72,7 +73,7 @@ The local server applies changes on the next page reload. To publish them to the
 | Route | Parameters | Returns |
 |-------|------------|---------|
 | `GET /api/tournaments` | `from`, `to` (YYYY-MM-DD), optional `tour=ATP,WTA` | `{ tournaments: [...], errors: [...] }` |
-| `GET /api/players` | WTA: `tour=WTA&id&year` · ATP: `tour=ATP&id&start&end` | `{ source, singles: [...], doubles: [...] }` |
+| `GET /api/players` | WTA: `tour=WTA&id&year` · ATP: `tour=ATP&id&start&end` · optional `fresh=1` to skip the cache | `{ source, singles: [...], doubles: [...] }` |
 
 ## Data sources
 
