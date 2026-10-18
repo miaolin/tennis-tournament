@@ -6,7 +6,7 @@ const { wtaTournaments, wtaPlayers, atpTournaments, atpPlayers, isHidden } = req
 
 const DAYS_AHEAD = 15;
 const KEEP_DAYS = 60; // saved lists expire this long after the last check
-const SITE = "https://vercel-deploy-nine-umber.vercel.app";
+const SITE = "https://tennis-tournament-vercel-deploy.vercel.app";
 const ENTRY = { M: "Main draw", Q: "Qualifying", WC: "Wildcards", LL: "Lucky losers", ALT: "Alternates", PR: "Protected ranking", SE: "Special exempt" };
 
 const addDays = (day, n) => new Date(Date.parse(day + "T00:00:00Z") + n * 864e5).toISOString().slice(0, 10);
