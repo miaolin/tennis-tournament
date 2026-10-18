@@ -79,7 +79,7 @@ Once a day a Vercel cron job (`vercel-deploy/api/check-players.js`, scheduled in
 The job uses two free services, which need accounts you create yourself:
 
 1. **Resend** (sends the email): sign up at https://resend.com with the address that should receive the alerts, then create an API key. Without your own verified domain, Resend only delivers to the address of your Resend account.
-2. **Upstash Redis** (remembers yesterday's lists): in the Vercel dashboard, open the `tennis-tournament-vercel-deploy` project, then **Storage** › **Create Database** › **Upstash for Redis** (free plan), and connect it to the project. This adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` to the project.
+2. **Upstash Redis** (remembers yesterday's lists): in the Vercel dashboard, open the `tennis-tournament-vercel-deploy` project, then **Storage** › **Create Database** › **Upstash for Redis** (free plan), and connect it to the project. This adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` to the project (with a prefix, such as `tennis_tournament_KV_REST_API_URL`, if you chose one; either works).
 
 Then add the other settings and redeploy:
 
