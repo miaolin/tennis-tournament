@@ -234,7 +234,9 @@
   .fold:focus-visible { outline: 2px solid var(--court); outline-offset: 2px; border-radius: 4px; }
   .fold .chev { display: inline-block; width: 12px; font-size: 16px; line-height: 1; color: var(--muted); transition: transform .15s; }
   .fold[aria-expanded="true"] .chev { transform: rotate(90deg); }
-  .sum { margin-top: 5px; font: 600 12px Inter, sans-serif; }
+  .sum { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 5px; font: 600 12px Inter, sans-serif; }
+  .fold-link { all: unset; cursor: pointer; font: 600 12px Inter, sans-serif; color: var(--court); text-decoration: underline; text-underline-offset: 2px; }
+  .fold-link:focus-visible { outline: 2px solid var(--court); outline-offset: 2px; border-radius: 4px; }
   .sum .out { color: #e5655f; } .sum .in { color: var(--court); } .sum .mv { color: #e0a43a; }
   .alert-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
   /* Read / unread label: a small switch on each alert */
@@ -334,7 +336,7 @@
 
 <script>
 const $ = (s) => document.querySelector(s);
-const state = { tour: "ALL", type: "", month: "", months: [], view: "list", editable: false, hidden: [], tournaments: [], players: new Map(), loading: new Set(), open: new Set(), selected: null, photos: {}, photosOn: null };
+const state = { tour: "ALL", type: "", month: "", months: [], view: "list", editable: false, hidden: [], tournaments: [], players: new Map(), loading: new Set(), open: new Set(), selected: null, photos: {}, photosOn: null, fromAlert: new Map() };
 // Earlier versions remembered per-tournament Auto-update switches here; the switch is gone.
 try { localStorage.removeItem("autoUpdate"); } catch {}
 const today = new Date();
@@ -598,6 +600,9 @@ function renderPlayers(t, q) {
     </span>`;
   if (p.error) return `<div class="detail-top"><span class="note">Couldn't load players: ${esc(p.error)}</span>${upd}${link}</div>`;
   const ch = p.changes, added = new Set(ch ? ch.added.map((e) => e.id) : []);
+  // Opened from an alert (state.fromAlert): show that alert's changes and tag its added players New.
+  const al = state.fromAlert.get(k), alertAdded = new Set(al ? al.added : []);
+  const fromAlert = !al ? "" : `<div class="changes"><p><b>Alert found ${new Date(al.at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</b></p>${alertText(al)}</div>`;
   const names = (es) => es.map((e) => esc(e.names.join(" / "))).join(", ");
   const changes = !p.base ? "" : `<div class="changes">${ch.removed.length + ch.added.length + ch.moved.length
     ? `<p><b>Changes since ${time(p.base.at)}</b></p>`
@@ -629,12 +634,12 @@ function renderPlayers(t, q) {
       <div class="group-title">${esc(title)}${g ? ` · ${esc(g)}` : ""} (${es.length})</div>
       <ul class="players${state.photosOn ? " with-photos" : ""}">${es
         .sort((a, b) => (+a.seed || 999) - (+b.seed || 999) || a.names[0].localeCompare(b.names[0]))
-        .map((e) => `<li>${faces(e)}<span class="cc">${esc(e.countries.filter(Boolean).join("/"))}</span><span>${hl(e.names.join(" / "))}</span>${added.has(entryId(title, e)) ? '<span class="new">New</span>' : ""}${e.seed ? `<span class="seed">[${esc(e.seed)}]</span>` : ""}</li>`)
+        .map((e) => `<li>${faces(e)}<span class="cc">${esc(e.countries.filter(Boolean).join("/"))}</span><span>${hl(e.names.join(" / "))}</span>${added.has(entryId(title, e)) || alertAdded.has(e.names.join(" / ")) ? '<span class="new">New</span>' : ""}${e.seed ? `<span class="seed">[${esc(e.seed)}]</span>` : ""}</li>`)
         .join("")}</ul>`).join("");
   };
   const total = p.singles.length + p.doubles.length;
   return `<div class="detail-top"><span class="note">Source: ${esc(p.source)}</span>${upd}${link}</div>
-    ${changes}${total ? block("Singles", p.singles) + block("Doubles", p.doubles)
+    ${fromAlert}${changes}${total ? block("Singles", p.singles) + block("Doubles", p.doubles)
       : `<p class="note">No player list published yet. Check back closer to the start date.</p>`}`;
 }
 
@@ -963,14 +968,15 @@ function alertText(a) {
 // Folded alerts show one line of counts. Unless folded or unfolded by hand, new alerts are unfolded and
 // read ones folded.
 const isFolded = (a) => (a.folded === undefined ? !a.unread : a.folded);
-function alertSummary(a) {
+const foldLink = (i, folded) => `<button class="fold-link" data-fold="${i}" aria-expanded="${!folded}">${folded ? "Show players ▾" : "Hide ▴"}</button>`;
+function alertSummary(a, i) {
   if (a.published) return `<div class="sum"><span class="in">+${a.published} published</span></div>`;
   const parts = [
     a.removed.length && `<span class="out">−${a.removed.length} withdrawn</span>`,
     a.added.length && `<span class="in">+${a.added.length} added</span>`,
     a.moved.length && `<span class="mv">${a.moved.length} moved</span>`,
   ].filter(Boolean);
-  return `<div class="sum">${parts.join(" · ")}</div>`;
+  return `<div class="sum">${parts.join(" · ")}${foldLink(i, true)}</div>`;
 }
 
 function setRead(indexes, read) {
@@ -1003,7 +1009,7 @@ function renderAlerts() {
           <span class="alert-title"><button class="fold" data-fold="${i}" aria-expanded="${!isFolded(a)}"
             title="${isFolded(a) ? "Show the changes" : "Fold"}"><span class="chev" aria-hidden="true">▸</span><strong>${esc(a.name)}</strong></button></span>
           <span class="note">${esc(a.level)} · starts ${fmt(a.start, { month: "short", day: "numeric" })} · found ${when(a.at)}</span>
-          ${isFolded(a) ? alertSummary(a) : alertText(a)}</span>
+          ${isFolded(a) ? alertSummary(a, i) : alertText(a) + (a.published ? "" : `<div class="sum">${foldLink(i, false)}</div>`)}</span>
           <span class="alert-actions">
             <button class="state${a.unread ? " new" : ""}" data-read="${i}" aria-pressed="${!a.unread}"
               title="${a.unread ? "Mark as read" : "Mark as unread"}">${a.unread ? "New" : "Read"}</button>
@@ -1027,6 +1033,7 @@ async function goToTournament(a) {
   state.month = a.start.slice(0, 7);
   if (+a.start.slice(0, 4) !== state.year) { state.year = +a.start.slice(0, 4); await load(); }
   state.open.add(a.key);
+  state.fromAlert.set(a.key, a);
   render();
   loadPlayers(a.key, true);
   document.querySelector(`.card[data-key="${CSS.escape(a.key)}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1040,7 +1047,7 @@ $("#alertsPanel").addEventListener("click", async (e) => {
     state.alerts[i] = { ...state.alerts[i], folded: !isFolded(state.alerts[i]) };
     saved.set("playerAlerts", state.alerts);
     renderAlerts();
-    return document.querySelector(`[data-fold="${i}"]`)?.focus();
+    return document.querySelector(`.fold-link[data-fold="${i}"]`)?.focus();
   }
   if (b.dataset.alerts === "close") { openAlerts(false); return $("#alertsBtn").focus(); }
   if (b.dataset.read) return setRead([+b.dataset.read], state.alerts[+b.dataset.read].unread);
