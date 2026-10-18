@@ -1,6 +1,6 @@
 # tennis-tournament (Vercel)
 
-**Live:** https://vercel-deploy-nine-umber.vercel.app · **Version:** 1.1.0 ([changelog](../CHANGELOG.md))
+**Live:** https://tennis-tournament-vercel-deploy.vercel.app · **Version:** 1.1.0 ([changelog](../CHANGELOG.md))
 
 Vercel version of the tournament tracker in the repo root. Same frontend and data sources; the Node server is replaced by serverless functions, plus a daily cron job that emails player list changes.
 

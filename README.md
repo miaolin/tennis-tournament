@@ -2,7 +2,7 @@
 
 A small website that collects ATP and WTA tournament information (dates, venue, level, surface, prize money) and player lists in one place.
 
-**Live:** https://vercel-deploy-nine-umber.vercel.app · **Version:** 1.1.0 ([changelog](CHANGELOG.md))
+**Live:** https://tennis-tournament-vercel-deploy.vercel.app · **Version:** 1.1.0 ([changelog](CHANGELOG.md))
 
 ## Features
 
@@ -38,6 +38,8 @@ npm start          # or: node server.js
 No dependencies. Requires Node 18+ (uses built-in `fetch`).
 
 ## Deploy to Vercel
+
+The Vercel project `tennis-tournament-vercel-deploy` is connected to this GitHub repo with `vercel-deploy/` as its root directory, so every push to `main` deploys to production and other branches get preview deployments. To deploy by hand:
 
 ```sh
 cd vercel-deploy
@@ -77,7 +79,7 @@ Once a day a Vercel cron job (`vercel-deploy/api/check-players.js`, scheduled in
 The job uses two free services, which need accounts you create yourself:
 
 1. **Resend** (sends the email): sign up at https://resend.com with the address that should receive the alerts, then create an API key. Without your own verified domain, Resend only delivers to the address of your Resend account.
-2. **Upstash Redis** (remembers yesterday's lists): in the Vercel dashboard, open the `vercel-deploy` project, then **Storage** › **Create Database** › **Upstash for Redis** (free plan), and connect it to the project. This adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` to the project.
+2. **Upstash Redis** (remembers yesterday's lists): in the Vercel dashboard, open the `tennis-tournament-vercel-deploy` project, then **Storage** › **Create Database** › **Upstash for Redis** (free plan), and connect it to the project. This adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` to the project.
 
 Then add the other settings and redeploy:
 
@@ -95,7 +97,7 @@ To check the setup, call the job by hand with `?test=1`, which emails you even w
 
 ```sh
 vercel env pull .env.check --environment production   # gets CRON_SECRET
-curl -H "Authorization: Bearer $(grep CRON_SECRET .env.check | cut -d'"' -f2)" "https://vercel-deploy-nine-umber.vercel.app/api/check-players?test=1"
+curl -H "Authorization: Bearer $(grep CRON_SECRET .env.check | cut -d'"' -f2)" "https://tennis-tournament-vercel-deploy.vercel.app/api/check-players?test=1"
 rm .env.check
 ```
 

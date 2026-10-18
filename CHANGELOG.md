@@ -18,6 +18,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- The live site moved to https://tennis-tournament-vercel-deploy.vercel.app, a Vercel project connected to the GitHub repo that deploys every push to `main`. The old address (vercel-deploy-nine-umber.vercel.app) no longer works.
 - Filter bar is laid out in three rows: view, dates, month and search; then the tour as large logo-style tiles (ALL / ATP / WTA with a caption and count, filled with the tour color when selected); then the type tiles. With four rows of tiles (month, tour, type), the filter bar now scrolls away with the page; the month bar stays pinned at the top.
 - The site always opens on the list view (it no longer remembers the last view used).
 - From/To date inputs replaced by a year switcher (‹ 2026 ›). The site shows one year at a time, January to December, opening on the current year and month; other years open on All months.
