@@ -64,6 +64,7 @@ async function wtaPlayers(id, year, fresh = false) {
       events[key].push({
         names: ep.players.map((p) => titleCase(p.fullName)),
         countries: ep.players.map((p) => p.countryCode),
+        ids: ep.players.map((p) => String(p.id)),
         seed: ep.seed || null,
         entry: ep.entryType || null,
       });
@@ -183,8 +184,9 @@ async function atpPlayers(id, start, end, fresh = false) {
     if (!key) continue;
     for (const c of g.competitions || []) {
       for (const comp of c.competitors || []) {
-        const athletes = comp.athlete ? [comp.athlete] : (comp.roster && comp.roster.athletes) || [];
-        const names = athletes.map((a) => a.displayName).filter((n) => n && n !== "TBD");
+        const athletes = (comp.athlete ? [comp.athlete] : (comp.roster && comp.roster.athletes) || [])
+          .filter((a) => a.displayName && a.displayName !== "TBD");
+        const names = athletes.map((a) => a.displayName);
         if (!names.length) continue;
         const k = names.join("/");
         if (seen[key].has(k)) continue;
@@ -192,6 +194,8 @@ async function atpPlayers(id, start, end, fresh = false) {
         result[key].push({
           names,
           countries: athletes.map((a) => (a.flag && a.flag.alt) || null),
+          // ESPN athlete id, from the player card link (".../player/_/id/10954/...").
+          ids: athletes.map((a) => { const m = ((a.links && a.links[0] && a.links[0].href) || "").match(/\/id\/(\d+)/); return m ? m[1] : null; }),
           seed: comp.curatedRank && comp.curatedRank.current < 99 ? String(comp.curatedRank.current) : null,
           entry: null,
         });

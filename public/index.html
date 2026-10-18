@@ -177,6 +177,14 @@
   .group-title { font: 600 12px Inter, sans-serif; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 6px; }
   .players { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 16px; }
   .players li { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; border-bottom: 1px dashed var(--line); font-size: 14px; }
+  /* Player photos (local site only): a round photo per player, or their initials while there's none */
+  .players.with-photos li { align-items: center; padding: 5px 0; }
+  .faces { display: inline-flex; flex: none; }
+  .faces > * { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--surface); box-sizing: border-box; flex: none; }
+  .faces > * + * { margin-left: -10px; }
+  .faces img { object-fit: cover; object-position: 50% 12%; background: var(--line); }
+  .faces .ini { display: grid; place-items: center; background: color-mix(in srgb, var(--court) 18%, var(--surface)); color: var(--muted);
+    font: 700 12px Inter, sans-serif; }
   .players .cc { font-size: 11px; font-weight: 600; color: var(--muted); min-width: 32px; }
   .players .seed { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--clay); }
   /* Local editing: delete button, hidden list, undo toast (only shown when the local server allows editing) */
@@ -297,7 +305,7 @@
 
 <script>
 const $ = (s) => document.querySelector(s);
-const state = { tour: "ALL", type: "", month: "", months: [], view: "list", editable: false, hidden: [], tournaments: [], players: new Map(), loading: new Set(), open: new Set(), selected: null };
+const state = { tour: "ALL", type: "", month: "", months: [], view: "list", editable: false, hidden: [], tournaments: [], players: new Map(), loading: new Set(), open: new Set(), selected: null, photos: {}, photosOn: null };
 // Earlier versions remembered per-tournament Auto-update switches here; the switch is gone.
 try { localStorage.removeItem("autoUpdate"); } catch {}
 const today = new Date();
@@ -569,6 +577,12 @@ function renderPlayers(t, q) {
       + (ch.moved.length ? `<p><b>Moved:</b> ${ch.moved.map((m) => `${esc(m.names.join(" / "))} (${esc(ENTRY[m.from] || m.from || "–")} → ${esc(ENTRY[m.to] || m.to || "–")})`).join(", ")}</p>` : "")
     : `<p>No changes since ${time(p.base.at)}.</p>`}</div>`;
   const hl = (s) => q ? esc(s).replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), (m) => `<mark>${m}</mark>`) : esc(s);
+  // Photos (local site): one per player, initials until a photo is found or when there's none.
+  const initials = (n) => n.split(/[\s-]+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  const faces = (e) => !state.photosOn ? "" : `<span class="faces">${e.names.map((n, i) => {
+    const f = e.ids && e.ids[i] && state.photos[`${t.tour}-${e.ids[i]}`];
+    return f ? `<img src="/photos/${encodeURIComponent(f)}" alt="" title="${esc(n)}" loading="lazy">` : `<span class="ini" title="${esc(n)}">${esc(initials(n))}</span>`;
+  }).join("")}</span>`;
   const block = (title, entries) => {
     if (!entries.length) return "";
     const groups = new Map();
@@ -581,9 +595,9 @@ function renderPlayers(t, q) {
     const rank = (g) => (order.includes(g) ? order.indexOf(g) : order.length);
     return [...groups].sort((a, b) => rank(a[0]) - rank(b[0])).map(([g, es]) => `
       <div class="group-title">${esc(title)}${g ? ` · ${esc(g)}` : ""} (${es.length})</div>
-      <ul class="players">${es
+      <ul class="players${state.photosOn ? " with-photos" : ""}">${es
         .sort((a, b) => (+a.seed || 999) - (+b.seed || 999) || a.names[0].localeCompare(b.names[0]))
-        .map((e) => `<li><span class="cc">${esc(e.countries.filter(Boolean).join("/"))}</span><span>${hl(e.names.join(" / "))}</span>${added.has(entryId(title, e)) ? '<span class="new">New</span>' : ""}${e.seed ? `<span class="seed">[${esc(e.seed)}]</span>` : ""}</li>`)
+        .map((e) => `<li>${faces(e)}<span class="cc">${esc(e.countries.filter(Boolean).join("/"))}</span><span>${hl(e.names.join(" / "))}</span>${added.has(entryId(title, e)) ? '<span class="new">New</span>' : ""}${e.seed ? `<span class="seed">[${esc(e.seed)}]</span>` : ""}</li>`)
         .join("")}</ul>`).join("");
   };
   const total = p.singles.length + p.doubles.length;
@@ -655,12 +669,33 @@ async function loadPlayers(k, fresh = false) {
       data.changes = diffPlayers(data.base, data);
     }
     state.players.set(k, data);
+    loadPhotos(t, data);
   } catch (e) {
     // Keep the list already shown if an update fails.
     state.players.set(k, ok ? { ...ok, updateError: e.message } : { error: e.message, at: Date.now() });
   }
   state.loading.delete(k);
   render();
+}
+
+// Player photos, on the local site only: its server saves each player's photo in photos/ the first time it's
+// needed and reports how many are still being looked up, so this asks again until they're all done.
+// The live site has no photo store (404), so no photos or initials are shown there.
+async function loadPhotos(t, list, tries = 0) {
+  if (state.photosOn === false) return;
+  const players = [...list.singles, ...list.doubles]
+    .flatMap((e) => (e.ids || []).map((id, i) => (id ? { tour: t.tour, id, name: e.names[i] } : null)).filter(Boolean));
+  if (!players.length) return;
+  try {
+    const r = await fetch("/api/photos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ players }) });
+    if (!r.ok) { state.photosOn = false; return; }
+    const d = await r.json();
+    const first = !state.photosOn, before = Object.keys(state.photos).length;
+    state.photosOn = true;
+    Object.assign(state.photos, d.photos);
+    if (first || Object.keys(state.photos).length !== before) render();
+    if (d.pending && tries < 100) setTimeout(() => loadPhotos(t, list, tries + 1), 3000);
+  } catch {}
 }
 
 // Hourly update: reload lists on screen once they're UPDATE_MIN minutes old, while the page is visible.
