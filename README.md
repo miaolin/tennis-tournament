@@ -2,7 +2,7 @@
 
 A small website that collects ATP and WTA tournament information (dates, venue, level, surface, prize money) and player lists in one place.
 
-**Live:** https://tennis-tournament-vercel-deploy.vercel.app · **Version:** 1.1.0 ([changelog](CHANGELOG.md))
+**Live:** https://tennis-tournament-vercel-deploy.vercel.app · **Version:** 1.2.0 ([changelog](CHANGELOG.md))
 
 ## Features
 
