@@ -12,7 +12,8 @@ A small website that collects ATP and WTA tournament information (dates, venue, 
 - Month tiles to pick a month (or All) of the selected year; opens on the current month, with earlier months shown as the archive
 - Search by tournament, city or country, plus players in any tournament you've opened
 - Click a tournament to load its player list: singles and doubles, grouped into main draw and qualifying, with seeds
-- Keep player lists current: **Update** reloads a list from the source, **Auto-update** (on by default for tournaments starting within 15 days) reloads it every 5 minutes while open, and a summary shows who withdrew, was added or moved since you first opened it
+- Keep player lists current: **Update** reloads a list from the source, an open list reloads by itself every hour (until the tournament ends), and a summary shows who withdrew, was added or moved since you first opened it
+- In-app player alerts: while the site is open, it checks every tournament starting within 15 days once an hour and shows any player list change under **🔔 Alerts** (with a count of new ones, a notice, and an optional desktop notification). Kept in your browser only
 - Daily email alert when a player list changes for any tournament starting within 15 days (see [Daily email alerts](#daily-email-alerts))
 - Link to each tournament's official page
 
