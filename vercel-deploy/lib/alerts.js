@@ -112,10 +112,22 @@ function email(changed, checked, errors, today, test) {
 
 // ---------------------------------------------------------------- Vercel services (over plain HTTPS, no packages)
 
-// Upstash Redis REST API. Vercel's Upstash integration sets KV_REST_API_URL/KV_REST_API_TOKEN.
+// Vercel's Upstash integration names its settings KV_REST_API_URL/KV_REST_API_TOKEN, or with the prefix
+// chosen when connecting the store (e.g. tennis_tournament_KV_REST_API_URL). Returns the first one set.
+const findEnv = (env, names) => {
+  for (const name of names) {
+    const k = Object.keys(env).find((k) => (k === name || k.endsWith(`_${name}`)) && env[k]);
+    if (k) return env[k];
+  }
+  return undefined;
+};
+const REDIS_URL = ["KV_REST_API_URL", "UPSTASH_REDIS_REST_URL"];
+const REDIS_TOKEN = ["KV_REST_API_TOKEN", "UPSTASH_REDIS_REST_TOKEN"];
+
+// Upstash Redis REST API.
 function redisStore(env = process.env) {
-  const url = env.KV_REST_API_URL || env.UPSTASH_REDIS_REST_URL;
-  const token = env.KV_REST_API_TOKEN || env.UPSTASH_REDIS_REST_TOKEN;
+  const url = findEnv(env, REDIS_URL);
+  const token = findEnv(env, REDIS_TOKEN);
   const cmd = async (args) => {
     const res = await fetch(url, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(args) });
     const data = await res.json();
@@ -142,8 +154,8 @@ function resendSender(env = process.env) {
 }
 
 const missingConfig = (env = process.env) => [
-  ["RESEND_API_KEY"], ["ALERT_EMAIL"],
-  ["KV_REST_API_URL", "UPSTASH_REDIS_REST_URL"], ["KV_REST_API_TOKEN", "UPSTASH_REDIS_REST_TOKEN"],
-].filter((names) => !names.some((n) => env[n])).map((names) => names.join(" or "));
+  ["RESEND_API_KEY"], ["ALERT_EMAIL"], REDIS_URL, REDIS_TOKEN,
+].filter((names) => (names === REDIS_URL || names === REDIS_TOKEN ? !findEnv(env, names) : !names.some((n) => env[n])))
+  .map((names) => names.join(" or "));
 
 module.exports = { checkPlayers, redisStore, resendSender, missingConfig, snapshot, diff, DAYS_AHEAD };
