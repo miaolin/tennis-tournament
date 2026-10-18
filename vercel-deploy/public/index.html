@@ -229,6 +229,13 @@
   .alert.unread { box-shadow: inset 4px 0 0 var(--court); background: color-mix(in srgb, var(--court) 7%, var(--surface)); }
   .alert.read > span { opacity: .62; }
   .alert-title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  /* Folding: the alert's title is a button; a folded alert shows a one-line count of its changes */
+  .fold { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+  .fold:focus-visible { outline: 2px solid var(--court); outline-offset: 2px; border-radius: 4px; }
+  .fold .chev { display: inline-block; width: 12px; font-size: 16px; line-height: 1; color: var(--muted); transition: transform .15s; }
+  .fold[aria-expanded="true"] .chev { transform: rotate(90deg); }
+  .sum { margin-top: 5px; font: 600 12px Inter, sans-serif; }
+  .sum .out { color: #e5655f; } .sum .in { color: var(--court); } .sum .mv { color: #e0a43a; }
   .alert-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
   /* Read / unread label: a small switch on each alert */
   .state { all: unset; cursor: pointer; font: 700 10px Inter, sans-serif; text-transform: uppercase; letter-spacing: .06em;
@@ -953,6 +960,19 @@ function alertText(a) {
     + row("mv", "Moved", a.moved.map((m) => `<span class="chip">${esc(m.names)} <i>${esc(entry(m.from))} → ${esc(entry(m.to))}</i></span>`));
 }
 
+// Folded alerts show one line of counts. Unless folded or unfolded by hand, new alerts are unfolded and
+// read ones folded.
+const isFolded = (a) => (a.folded === undefined ? !a.unread : a.folded);
+function alertSummary(a) {
+  if (a.published) return `<div class="sum"><span class="in">+${a.published} published</span></div>`;
+  const parts = [
+    a.removed.length && `<span class="out">−${a.removed.length} withdrawn</span>`,
+    a.added.length && `<span class="in">+${a.added.length} added</span>`,
+    a.moved.length && `<span class="mv">${a.moved.length} moved</span>`,
+  ].filter(Boolean);
+  return `<div class="sum">${parts.join(" · ")}</div>`;
+}
+
 function setRead(indexes, read) {
   for (const i of indexes) if (state.alerts[i]) state.alerts[i] = { ...state.alerts[i], unread: !read };
   saved.set("playerAlerts", state.alerts);
@@ -974,14 +994,16 @@ function renderAlerts() {
       ${canAsk ? '<button class="restore-btn" data-alerts="notify">Turn on desktop notifications</button>' : ""}
       <button class="restore-btn" data-alerts="check">Check now</button>
       ${unread ? '<button class="restore-btn" data-alerts="read">Mark all read</button>' : ""}
-      ${state.alerts.length ? '<button class="restore-btn" data-alerts="clear">Clear all</button>' : ""}</div>
+      ${state.alerts.length ? '<button class="restore-btn" data-alerts="clear">Clear all</button>' : ""}
+      <button class="restore-btn" data-alerts="close" aria-label="Close player alerts">Close ✕</button></div>
     <p class="note">Checked every hour while this site is open: player lists of tournaments starting within ${WATCH_DAYS} days.
       ${watching ? "Checking now…" : info ? `Last check ${when(info.at)} (${info.count} tournaments).` : "Not checked yet."}</p>`
     + (state.alerts.length
       ? `<ul>${state.alerts.map((a, i) => `<li class="alert ${a.unread ? "unread" : "read"}"><span>
-          <span class="alert-title"><strong>${esc(a.name)}</strong></span>
+          <span class="alert-title"><button class="fold" data-fold="${i}" aria-expanded="${!isFolded(a)}"
+            title="${isFolded(a) ? "Show the changes" : "Fold"}"><span class="chev" aria-hidden="true">▸</span><strong>${esc(a.name)}</strong></button></span>
           <span class="note">${esc(a.level)} · starts ${fmt(a.start, { month: "short", day: "numeric" })} · found ${when(a.at)}</span>
-          ${alertText(a)}</span>
+          ${isFolded(a) ? alertSummary(a) : alertText(a)}</span>
           <span class="alert-actions">
             <button class="state${a.unread ? " new" : ""}" data-read="${i}" aria-pressed="${!a.unread}"
               title="${a.unread ? "Mark as read" : "Mark as unread"}">${a.unread ? "New" : "Read"}</button>
@@ -1013,6 +1035,14 @@ async function goToTournament(a) {
 $("#alertsBtn").addEventListener("click", (e) => openAlerts(e.currentTarget.getAttribute("aria-expanded") !== "true"));
 $("#alertsPanel").addEventListener("click", async (e) => {
   const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.fold) {
+    const i = +b.dataset.fold;
+    state.alerts[i] = { ...state.alerts[i], folded: !isFolded(state.alerts[i]) };
+    saved.set("playerAlerts", state.alerts);
+    renderAlerts();
+    return document.querySelector(`[data-fold="${i}"]`)?.focus();
+  }
+  if (b.dataset.alerts === "close") { openAlerts(false); return $("#alertsBtn").focus(); }
   if (b.dataset.read) return setRead([+b.dataset.read], state.alerts[+b.dataset.read].unread);
   if (b.dataset.go) { setRead([+b.dataset.go], true); return goToTournament(state.alerts[+b.dataset.go]); }
   if (b.dataset.alerts === "read") return setRead(state.alerts.map((_, i) => i), true);

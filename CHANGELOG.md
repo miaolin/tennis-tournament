@@ -16,6 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - In-app player alerts. While the site is open, even in a background tab, it checks the player lists of every tournament starting within 15 days once an hour. It compares them with the lists saved in this browser at the previous check, and records each change as an alert: players withdrawn, added or moved, or a list newly published.
   - New alerts show as a notice, and the 🔔 Alerts button gives a count of new ones.
   - Each alert has a New / Read label, which you can click to switch. Opening an alert marks it read, and there's a Mark all read button. Unread alerts have a green edge; read ones are dimmed.
+  - Alerts fold and unfold by clicking their title. A folded alert shows one line of counts (for example "−1 withdrawn · +2 added · 1 moved"). New alerts start unfolded and read ones folded, unless you fold or unfold them yourself. The list has a Close button, and the 🔔 Alerts button also opens and closes it.
   - The differences are shown as one chip per player: withdrawn in red and struck through, added in green with +, moved in amber (for example "Qualifying → Main draw").
   - The Alerts list has an Open button that jumps to the tournament, plus Check now, Clear all, and an option to turn on desktop notifications.
   - Alerts and saved lists stay in your browser. The first check of each tournament only saves its list. The daily email is separate and unchanged.
