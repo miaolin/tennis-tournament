@@ -136,7 +136,9 @@ The alerts come from `onboarding@resend.dev`, so the first ones may land in spam
 | Route | Parameters | Returns |
 |-------|------------|---------|
 | `GET /api/tournaments` | `from`, `to` (YYYY-MM-DD), optional `tour=ATP,WTA` | `{ tournaments: [...], errors: [...] }` |
-| `GET /api/players` | WTA: `tour=WTA&id&year` · ATP: `tour=ATP&id&start&end` · optional `fresh=1` to skip the cache | `{ source, singles: [...], doubles: [...] }` |
+| `GET /api/players` | WTA: `tour=WTA&id&year` · ATP: `tour=ATP&id&start&end` · optional `fresh=1` to skip the cache | `{ source, singles: [...], doubles: [...] }`; each entry has `names`, `countries`, `ids` (WTA or ESPN player ids), `seed`, `entry` |
+| `POST /api/photos` | JSON `{ players: [{ tour, id, name }] }` | `{ photos: { "WTA-314660": { src, credit, link } }, pending }`. Local: saved copies, looks up missing ones in the background (`pending` until done; same computer only). Live: original addresses from `vercel-deploy/data/photos.json`, `pending` always 0 |
+| `GET /api/check-players` | live site only, `Authorization: Bearer $CRON_SECRET`, optional `test=1` | the daily email check's result |
 
 ## Data sources
 

@@ -68,6 +68,20 @@ ESPN only flags Grand Slams (`major: true`). Other levels (ATP 250, ATP 500, ATP
 
 The ATP posts entry lists and draws as PDFs on protennislive.com, for example `https://www.protennislive.com/posting/2026/{id}/mds.pdf`. These are reachable without bot protection and would give pre-draw ATP entry lists, but the site would have to parse PDFs, which is less reliable than a JSON feed.
 
+## Player photos
+
+| Tour | First choice | Fallback |
+|------|--------------|----------|
+| WTA | Official headshot: `https://api.wtatennis.com/content/wta/photo/en/?tagNames=player-headshot&referenceExpression=TENNIS_PLAYER:{id} or …` (several players per request; a head crop is preferred, then the newest) | Wikipedia |
+| ATP | ESPN headshot: `https://a.espncdn.com/i/headshots/tennis/players/full/{espnId}.png`, which exists for only about 10% of players | Wikipedia |
+
+**Wikipedia fallback:** `https://en.wikipedia.org/api/rest_v1/page/summary/{Name}` gives the article's lead image.
+- It's used only when the article's description mentions tennis and the player's birth year. The birth year comes from `api.wtatennis.com/tennis/players/{id}` or `sports.core.api.espn.com/v2/sports/tennis/leagues/atp/athletes/{id}`. This filters out namesakes, for example the 1972-born Martin Damm instead of the 2003-born player.
+- The author and license come from the Wikimedia Commons API (`prop=imageinfo&iiprop=extmetadata`) and are shown as the photo's credit.
+- Images stored on English Wikipedia rather than Commons are usually non-free. They're kept for the local site only, never published.
+
+The local site saves copies in `photos/`. The live site lists only the original addresses (`vercel-deploy/data/photos.json`), and browsers load the images from WTA, ESPN or Wikimedia. All three serve images to other websites. Wikipedia asks for a descriptive User-Agent and rate-limits fast clients, so lookups run one at a time with a short pause.
+
 ## Caching
 
 Both servers keep upstream responses for 10 minutes: in memory in `server.js`, and at Vercel's edge (`s-maxage=600`) when deployed.

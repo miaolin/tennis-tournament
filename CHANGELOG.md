@@ -18,14 +18,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - The Alerts list has an Open button that jumps to the tournament, plus Check now, Clear all, and an option to turn on desktop notifications.
   - Alerts and saved lists stay in your browser. The first check of each tournament only saves its list. The daily email is separate and unchanged.
 
-### Fixed
-
-- Daily email alerts didn't find the Upstash Redis settings when the store was connected with a name prefix (for example `tennis_tournament_KV_REST_API_URL`). Prefixed and unprefixed names now both work.
+- `POST /api/photos` on both servers. The local one returns saved photos and looks up missing ones; the live one returns the published addresses.
 
 ### Changed
 
 - Player lists no longer have an Auto-update switch. Instead, an open list reloads by itself once it's an hour old, and so does a list you reopen after an hour. Tournaments that have finished aren't reloaded. Previously Auto-update reloaded every 5 minutes, and lists reopened after 10 minutes reloaded. The Update button still reloads at any time, and the daily email check is unchanged.
-- README: the email alerts section now says they're live, gives a one-line test that works with Vercel's encrypted `CRON_SECRET`, and notes that the first alerts may land in spam.
+- Docs:
+  - README: the email alerts section now says they're live, gives a one-line test that works with Vercel's encrypted `CRON_SECRET`, and notes that the first alerts may land in spam. It also has a Player photos section and lists `/api/photos` in the API table.
+  - docs/data-sources.md: describes where photos come from.
+  - vercel-deploy/README: covers the photo route, the data files and the GitHub auto-deploy.
+
+### Fixed
+
+- Daily email alerts didn't find the Upstash Redis settings when the store was connected with a name prefix (for example `tennis_tournament_KV_REST_API_URL`). Prefixed and unprefixed names now both work.
 
 ## [1.2.0] - 2026-10-18
 
