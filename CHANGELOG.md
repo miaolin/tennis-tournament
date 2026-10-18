@@ -11,6 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Player lists no longer have an Auto-update switch. Instead, an open list reloads by itself once it's an hour old, and so does a list you reopen after an hour. Tournaments that have finished aren't reloaded. Previously Auto-update reloaded every 5 minutes, and lists reopened after 10 minutes reloaded. The Update button still reloads at any time, and the daily email check is unchanged.
 - README: the email alerts section now says they're live, gives a one-line test that works with Vercel's encrypted `CRON_SECRET`, and notes that the first alerts may land in spam.
 
 ## [1.2.0] - 2026-10-18
