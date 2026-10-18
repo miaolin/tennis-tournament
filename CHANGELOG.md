@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-18
+
 ### Added
 
 - Player photos in the player lists, shown in round frames, with initials when there's no photo. Hovering shows the credit, and Wikimedia Commons photos link to their file page.
@@ -89,7 +91,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - ATP data comes from ESPN because atptour.com blocks automated requests, so ATP tournaments have no pre-draw entry list, surface, prize money or level (levels added in a later release).
 
-[Unreleased]: https://github.com/miaolin/tennis-tournament/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/miaolin/tennis-tournament/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/miaolin/tennis-tournament/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/miaolin/tennis-tournament/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/miaolin/tennis-tournament/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/miaolin/tennis-tournament/releases/tag/v1.0.0
