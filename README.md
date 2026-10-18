@@ -15,6 +15,7 @@ A small website that collects ATP and WTA tournament information (dates, venue, 
 - Keep player lists current: **Update** reloads a list from the source, an open list reloads by itself every hour (until the tournament ends), and a summary shows who withdrew, was added or moved since you first opened it
 - In-app player alerts: while the site is open, it checks every tournament starting within 15 days once an hour and shows any player list change under **🔔 Alerts** (with a count of new ones, a notice, and an optional desktop notification). Kept in your browser only
 - Daily email alert when a player list changes for any tournament starting within 15 days (see [Daily email alerts](#daily-email-alerts))
+- Player photos in the player lists, with credits (see [Player photos](#player-photos))
 - Link to each tournament's official page
 
 ## Project layout
@@ -25,6 +26,11 @@ public/index.html     frontend
 vercel-deploy/        serverless version of the same app, deployed to Vercel
 vercel-deploy/data/hidden.json  tournaments removed by hand (see below)
 scripts/check-players.js  run the daily player check on this computer
+scripts/fetch-photos.js   download player photos ahead of time
+scripts/export-photos.js  publish the photo addresses for the live site
+lib/photos.js         finds and saves player photos
+photos/               saved player photos (not committed)
+vercel-deploy/data/photos.json  photo addresses and credits used by the live site
 docs/data-sources.md  where the WTA and ATP data comes from
 CHANGELOG.md          release notes
 ```
@@ -72,6 +78,25 @@ If a tournament's information is wrong, you can remove it for everyone. Removed 
 - `note` (optional): why it's hidden.
 
 The local server applies changes on the next page reload. To publish them to the live site, commit `hidden.json` and redeploy (`cd vercel-deploy && vercel --prod`).
+
+## Player photos
+
+Each player in a player list is shown with a round photo, or their initials when there's none. Hovering a photo shows its credit; a Wikimedia Commons photo links to its file page with the author and license.
+
+- **WTA players:** the official WTA headshot, matched by WTA player id.
+- **ATP players:** ESPN's headshot when ESPN has one (only a few players), matched by ESPN athlete id.
+- **Otherwise:** the photo from the player's English Wikipedia article. It's only used if the article describes a tennis player born in the same year as the source says, so a namesake's photo isn't used.
+
+**Local site:** the first time a list is opened, the local server looks up and downloads its players' photos into `photos/`, and they appear as they arrive. After that they load from that folder. Players without a photo are looked up again after 30 days. `photos/index.json` records each photo's source, original address and credit.
+
+**Live site:** the image files aren't published, because WTA and ESPN photos are theirs. Instead, `vercel-deploy/data/photos.json` lists each photo's original address and credit, and the browser loads the photo from WTA, ESPN or Wikimedia Commons directly. Wikipedia images that are not on Commons are usually not freely licensed, so they're left out of the live list.
+
+To update the photos, download them for every tournament in progress or starting within the next 15 days, then publish the list:
+
+```sh
+npm run fetch-photos          # or: npm run fetch-photos -- 30   for the next 30 days
+npm run export-photos         # writes vercel-deploy/data/photos.json; commit it and push
+```
 
 ## Daily email alerts
 

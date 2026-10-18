@@ -10,6 +10,7 @@ const PUBLIC_DIR = path.join(__dirname, "public");
 // Hand-maintained list of tournaments to remove; shared with the Vercel deployment.
 const HIDDEN_FILE = path.join(__dirname, "vercel-deploy", "data", "hidden.json");
 const { isHidden } = require("./vercel-deploy/lib/tennis");
+const photos = require("./lib/photos");
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36";
@@ -74,6 +75,7 @@ async function wtaPlayers(id, year, fresh = false) {
       events[key].push({
         names: ep.players.map((p) => titleCase(p.fullName)),
         countries: ep.players.map((p) => p.countryCode),
+        ids: ep.players.map((p) => String(p.id)),
         seed: ep.seed || null,
         entry: ep.entryType || null,
       });
@@ -193,8 +195,9 @@ async function atpPlayers(id, start, end, fresh = false) {
     if (!key) continue;
     for (const c of g.competitions || []) {
       for (const comp of c.competitors || []) {
-        const athletes = comp.athlete ? [comp.athlete] : (comp.roster && comp.roster.athletes) || [];
-        const names = athletes.map((a) => a.displayName).filter((n) => n && n !== "TBD");
+        const athletes = (comp.athlete ? [comp.athlete] : (comp.roster && comp.roster.athletes) || [])
+          .filter((a) => a.displayName && a.displayName !== "TBD");
+        const names = athletes.map((a) => a.displayName);
         if (!names.length) continue;
         const k = names.join("/");
         if (seen[key].has(k)) continue;
@@ -202,6 +205,8 @@ async function atpPlayers(id, start, end, fresh = false) {
         result[key].push({
           names,
           countries: athletes.map((a) => (a.flag && a.flag.alt) || null),
+          // ESPN athlete id, from the player card link (".../player/_/id/10954/...").
+          ids: athletes.map((a) => { const m = ((a.links && a.links[0] && a.links[0].href) || "").match(/\/id\/(\d+)/); return m ? m[1] : null; }),
           seed: comp.curatedRank && comp.curatedRank.current < 99 ? String(comp.curatedRank.current) : null,
           entry: null,
         });
@@ -213,7 +218,8 @@ async function atpPlayers(id, start, end, fresh = false) {
 
 // ---------------------------------------------------------------- HTTP
 
-const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml" };
+const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml",
+  ".jpg": "image/jpeg", ".png": "image/png", ".webp": "image/webp" };
 const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || "");
 
 function send(res, status, body, type = "application/json") {
@@ -235,13 +241,35 @@ function isLocalRequest(req) {
   return ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(ip) && ["localhost", "127.0.0.1", "[::1]"].includes(host);
 }
 
-function readBody(req) {
+function readBody(req, max = 10_000) {
   return new Promise((resolve, reject) => {
     let body = "";
-    req.on("data", (c) => { body += c; if (body.length > 10_000) reject(new Error("Body too large")); });
+    req.on("data", (c) => { body += c; if (body.length > max) reject(new Error("Body too large")); });
     req.on("end", () => resolve(body));
     req.on("error", reject);
   });
+}
+
+// Player photos (local site only): POST { players: [{ tour, id, name }] } returns the photos already saved
+// and starts looking up the missing ones in the background; `pending` counts those still being looked up,
+// so the page asks again until it's 0. The live site has no photo store and returns 404 here.
+const photoJobs = new Set();
+async function handlePhotos(req, res) {
+  if (!isLocalRequest(req)) return send(res, 403, { error: "Photos are only available on the local site" });
+  if (req.method !== "POST" || !/json/.test(req.headers["content-type"] || "")) return send(res, 400, { error: "POST JSON expected" });
+  const body = JSON.parse((await readBody(req, 200_000)) || "{}");
+  const players = (Array.isArray(body.players) ? body.players : [])
+    .filter((p) => ["WTA", "ATP"].includes(p.tour) && /^\d+$/.test(String(p.id)) && typeof p.name === "string")
+    .map((p) => ({ tour: p.tour, id: String(p.id), name: p.name.slice(0, 100) }))
+    .slice(0, 600);
+  const todo = photos.missing(players).filter((p) => !photoJobs.has(photos.photoKey(p.tour, p.id)));
+  if (todo.length) {
+    todo.forEach((p) => photoJobs.add(photos.photoKey(p.tour, p.id)));
+    photos.ensurePhotos(todo).catch((e) => console.warn("Photos:", e.message))
+      .finally(() => todo.forEach((p) => photoJobs.delete(photos.photoKey(p.tour, p.id))));
+  }
+  const pending = players.filter((p) => photoJobs.has(photos.photoKey(p.tour, p.id))).length;
+  return send(res, 200, { photos: photos.photoMap(players), pending });
 }
 
 async function handleHidden(req, url, res) {
@@ -302,6 +330,7 @@ async function handleApi(req, url, res) {
     return send(res, 400, { error: "tour must be ATP or WTA" });
   }
   if (url.pathname === "/api/hidden") return handleHidden(req, url, res);
+  if (url.pathname === "/api/photos") return handlePhotos(req, res);
   send(res, 404, { error: "Not found" });
 }
 
@@ -310,6 +339,15 @@ http
     const url = new URL(req.url, `http://${req.headers.host}`);
     try {
       if (url.pathname.startsWith("/api/")) return await handleApi(req, url, res);
+      if (url.pathname.startsWith("/photos/")) {
+        const photo = path.normalize(path.join(photos.DIR, url.pathname.slice("/photos/".length)));
+        if (!photo.startsWith(photos.DIR + path.sep)) return send(res, 403, "Forbidden", "text/plain");
+        return fs.readFile(photo, (err, buf) => {
+          if (err) return send(res, 404, "Not found", "text/plain");
+          res.writeHead(200, { "Content-Type": MIME[path.extname(photo)] || "application/octet-stream", "Cache-Control": "max-age=86400" });
+          res.end(buf);
+        });
+      }
       const file = path.normalize(path.join(PUBLIC_DIR, url.pathname === "/" ? "index.html" : url.pathname));
       if (!file.startsWith(PUBLIC_DIR)) return send(res, 403, "Forbidden", "text/plain");
       fs.readFile(file, (err, buf) =>
