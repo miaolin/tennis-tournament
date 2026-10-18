@@ -180,6 +180,23 @@
   .players .cc { font-size: 11px; font-weight: 600; color: var(--muted); min-width: 32px; }
   .players .seed { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--clay); }
   /* Local editing: delete button, hidden list, undo toast (only shown when the local server allows editing) */
+  /* Player list updates: Update button, auto-update switch, changes since the list was first loaded */
+  .upd { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .upd-btn { all: unset; cursor: pointer; font: 600 12px Inter, sans-serif; padding: 5px 11px; border-radius: 999px;
+    border: 1px solid var(--court); color: var(--court); background: var(--surface); white-space: nowrap; }
+  .upd-btn:hover { background: color-mix(in srgb, var(--court) 10%, var(--surface)); }
+  .upd-btn[disabled] { opacity: .6; cursor: progress; }
+  .upd-btn:focus-visible { outline: 2px solid var(--court); outline-offset: 2px; }
+  .auto { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; font: 500 12px Inter, sans-serif; text-transform: none; letter-spacing: 0; color: var(--muted); cursor: pointer; }
+  .auto input { accent-color: var(--court); margin: 0; }
+  .changes { border: 1px solid var(--line); border-left: 4px solid var(--court); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px;
+    font-size: 13px; background: color-mix(in srgb, var(--court) 6%, var(--surface)); }
+  .changes p { margin: 2px 0; }
+  .changes b { font-weight: 700; }
+  .changes .out { color: #d9534f; }
+  .changes .in { color: var(--court); }
+  .players .new { font: 700 10px Inter, sans-serif; text-transform: uppercase; letter-spacing: .04em; color: #fff; background: var(--court);
+    border-radius: 4px; padding: 1px 5px; }
   .del-btn, .hidden-btn, .restore-btn, .toast button { all: unset; cursor: pointer; font: 600 12px Inter, sans-serif;
     padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); white-space: nowrap; }
   .del-btn { color: #d9534f; border-color: color-mix(in srgb, #d9534f 45%, var(--line)); }
@@ -269,7 +286,14 @@
 
 <script>
 const $ = (s) => document.querySelector(s);
-const state = { tour: "ALL", type: "", month: "", months: [], view: "list", editable: false, hidden: [], tournaments: [], players: new Map(), open: new Set(), selected: null };
+const state = { tour: "ALL", type: "", month: "", months: [], view: "list", editable: false, hidden: [], tournaments: [], players: new Map(), loading: new Set(), open: new Set(), selected: null, autoPref: {} };
+// Auto-update is on by default for tournaments starting within AUTO_DAYS days. Switching it on or off is
+// remembered in this browser per tournament (best effort; older versions stored a list of switched-on keys).
+const AUTO_DAYS = 15;
+try {
+  const saved = JSON.parse(localStorage.getItem("autoUpdate") || "{}");
+  state.autoPref = Array.isArray(saved) ? Object.fromEntries(saved.map((k) => [k, true])) : saved;
+} catch {}
 const today = new Date();
 const localDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const thisMonth = localDay(today).slice(0, 7);
@@ -522,9 +546,24 @@ function renderPlayers(t, q) {
   const link = `<span class="note">ID ${esc(t.tour)} ${esc(t.id)}${t.year ? ` · ${esc(t.year)}` : ""}</span>`
     + (t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">Official page ↗</a>` : "")
     + (state.editable ? `<button class="del-btn" data-del="${esc(key(t))}">Delete</button>` : "");
-  const p = state.players.get(key(t));
+  const k = key(t), p = state.players.get(k), busy = state.loading.has(k);
   if (!p) return `<div class="detail-top"><span class="note">Loading player list…</span>${link}</div>`;
-  if (p.error) return `<div class="detail-top"><span class="note">Couldn't load players: ${esc(p.error)}</span>${link}</div>`;
+  const time = (ms) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const upd = `<span class="upd">
+      <button class="upd-btn" data-upd="${esc(k)}" ${busy ? "disabled" : ""}>${busy ? "Updating…" : "↻ Update"}</button>
+      <label class="auto" title="Reloads the player list every ${AUTO_MIN} minutes while it's open. On by default for tournaments starting within ${AUTO_DAYS} days.">
+        <input type="checkbox" data-auto="${esc(k)}" ${isAuto(t) ? "checked" : ""}> Auto-update</label>
+      ${p.at ? `<span class="note">Updated ${time(p.at)}${p.updateError ? ` · update failed: ${esc(p.updateError)}` : ""}</span>` : ""}
+    </span>`;
+  if (p.error) return `<div class="detail-top"><span class="note">Couldn't load players: ${esc(p.error)}</span>${upd}${link}</div>`;
+  const ch = p.changes, added = new Set(ch ? ch.added.map((e) => e.id) : []);
+  const names = (es) => es.map((e) => esc(e.names.join(" / "))).join(", ");
+  const changes = !p.base ? "" : `<div class="changes">${ch.removed.length + ch.added.length + ch.moved.length
+    ? `<p><b>Changes since ${time(p.base.at)}</b></p>`
+      + (ch.removed.length ? `<p class="out"><b>Withdrawn (${ch.removed.length}):</b> ${names(ch.removed)}</p>` : "")
+      + (ch.added.length ? `<p class="in"><b>Added (${ch.added.length}):</b> ${names(ch.added)}</p>` : "")
+      + (ch.moved.length ? `<p><b>Moved:</b> ${ch.moved.map((m) => `${esc(m.names.join(" / "))} (${esc(ENTRY[m.from] || m.from || "–")} → ${esc(ENTRY[m.to] || m.to || "–")})`).join(", ")}</p>` : "")
+    : `<p>No changes since ${time(p.base.at)}.</p>`}</div>`;
   const hl = (s) => q ? esc(s).replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), (m) => `<mark>${m}</mark>`) : esc(s);
   const block = (title, entries) => {
     if (!entries.length) return "";
@@ -540,12 +579,12 @@ function renderPlayers(t, q) {
       <div class="group-title">${esc(title)}${g ? ` · ${esc(g)}` : ""} (${es.length})</div>
       <ul class="players">${es
         .sort((a, b) => (+a.seed || 999) - (+b.seed || 999) || a.names[0].localeCompare(b.names[0]))
-        .map((e) => `<li><span class="cc">${esc(e.countries.filter(Boolean).join("/"))}</span><span>${hl(e.names.join(" / "))}</span>${e.seed ? `<span class="seed">[${esc(e.seed)}]</span>` : ""}</li>`)
+        .map((e) => `<li><span class="cc">${esc(e.countries.filter(Boolean).join("/"))}</span><span>${hl(e.names.join(" / "))}</span>${added.has(entryId(title, e)) ? '<span class="new">New</span>' : ""}${e.seed ? `<span class="seed">[${esc(e.seed)}]</span>` : ""}</li>`)
         .join("")}</ul>`).join("");
   };
   const total = p.singles.length + p.doubles.length;
-  return `<div class="detail-top"><span class="note">Source: ${esc(p.source)}</span>${link}</div>
-    ${total ? block("Singles", p.singles) + block("Doubles", p.doubles)
+  return `<div class="detail-top"><span class="note">Source: ${esc(p.source)}</span>${upd}${link}</div>
+    ${changes}${total ? block("Singles", p.singles) + block("Doubles", p.doubles)
       : `<p class="note">No player list published yet. Check back closer to the start date.</p>`}`;
 }
 
@@ -576,19 +615,64 @@ function select(btn) {
   loadPlayers(k);
 }
 
-async function loadPlayers(k) {
-  if (state.players.has(k)) return;
+// Player lists change as players withdraw or get in from the alternates list. A list is reloaded when it's
+// reopened after STALE_MIN minutes, when Update is clicked (fresh: skips the server's cache), and every
+// AUTO_MIN minutes while open with Auto-update on. Changes are counted against the first list loaded this visit.
+const STALE_MIN = 10, AUTO_MIN = 5;
+const entryId = (event, e) => `${event}|${e.names.join("/")}`;
+function diffPlayers(base, cur) {
+  const index = (p) => new Map([...p.singles.map((e) => [entryId("Singles", e), e]), ...p.doubles.map((e) => [entryId("Doubles", e), e])]);
+  const a = index(base), b = index(cur);
+  return {
+    removed: [...a].filter(([id]) => !b.has(id)).map(([id, e]) => ({ id, ...e })),
+    added: [...b].filter(([id]) => !a.has(id)).map(([id, e]) => ({ id, ...e })),
+    moved: [...b].filter(([id, e]) => a.has(id) && (a.get(id).entry || "") !== (e.entry || ""))
+      .map(([id, e]) => ({ id, names: e.names, from: a.get(id).entry, to: e.entry })),
+  };
+}
+
+async function loadPlayers(k, fresh = false) {
+  const prev = state.players.get(k);
+  if (state.loading.has(k) || (!fresh && prev && !prev.error && Date.now() - prev.at < STALE_MIN * 60e3)) return;
   const t = state.tournaments.find((x) => key(x) === k);
+  if (!t) return;
+  state.loading.add(k);
+  if (prev) render();
   const params = new URLSearchParams({ tour: t.tour, id: t.id, year: t.year, start: t.startDate, end: t.endDate });
+  if (fresh) params.set("fresh", "1");
+  const ok = prev && !prev.error ? prev : null;
   try {
-    const r = await fetch(`/api/players?${params}`);
+    const r = await fetch(`/api/players?${params}`, fresh ? { cache: "no-store" } : undefined);
     const data = await r.json();
-    state.players.set(k, r.ok ? data : { error: data.error });
+    if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+    data.at = Date.now();
+    if (ok) {
+      data.base = ok.base || { singles: ok.singles, doubles: ok.doubles, at: ok.at };
+      data.changes = diffPlayers(data.base, data);
+    }
+    state.players.set(k, data);
   } catch (e) {
-    state.players.set(k, { error: e.message });
+    // Keep the list already shown if an update fails.
+    state.players.set(k, ok ? { ...ok, updateError: e.message } : { error: e.message, at: Date.now() });
   }
+  state.loading.delete(k);
   render();
 }
+
+// Auto-update: reload lists that are on screen with Auto-update on, while the page is visible.
+const startsSoon = (t) => { const d = dayNum(t.startDate) - dayNum(localDay(today)); return d >= 0 && d <= AUTO_DAYS; };
+const isAuto = (t) => (key(t) in state.autoPref ? state.autoPref[key(t)] : startsSoon(t));
+function autoTick() {
+  if (document.hidden) return;
+  for (const btn of document.querySelectorAll("[data-upd]")) {
+    const k = btn.dataset.upd, t = state.tournaments.find((x) => key(x) === k);
+    if (!t || !isAuto(t)) continue;
+    const p = state.players.get(k);
+    if (!p || Date.now() - (p.at || 0) >= AUTO_MIN * 60e3) loadPlayers(k, true);
+  }
+}
+setInterval(autoTick, 30e3);
+document.addEventListener("visibilitychange", autoTick);
 
 $("#tourSeg").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
@@ -685,7 +769,9 @@ $("#hiddenPanel").addEventListener("click", (e) => {
 });
 
 $("#list").addEventListener("click", (e) => {
-  if (e.target.closest("a")) return;
+  if (e.target.closest("a, .auto")) return;
+  const upd = e.target.closest(".upd-btn");
+  if (upd) return loadPlayers(upd.dataset.upd, true);
   const del = e.target.closest(".del-btn");
   if (del) {
     // Two-step delete: the first click arms the button for 3 seconds, the second deletes.
@@ -703,6 +789,13 @@ $("#list").addEventListener("click", (e) => {
   if (ev) return select(ev);
   const btn = e.target.closest(".card > button");
   if (btn) toggle(btn.parentElement);
+});
+$("#list").addEventListener("change", (e) => {
+  const box = e.target.closest("[data-auto]"); if (!box) return;
+  const k = box.dataset.auto;
+  state.autoPref[k] = box.checked;
+  try { localStorage.setItem("autoUpdate", JSON.stringify(state.autoPref)); } catch {}
+  autoTick();
 });
 $("#yearNav").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;

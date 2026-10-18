@@ -71,3 +71,5 @@ The ATP posts entry lists and draws as PDFs on protennislive.com, for example `h
 ## Caching
 
 Both servers keep upstream responses for 10 minutes: in memory in `server.js`, and at Vercel's edge (`s-maxage=600`) when deployed.
+
+Player lists change as players withdraw, so `/api/players` accepts `fresh=1`, which fetches from the source instead of the cached copy (and isn't cached at the edge). The site sends it when you click Update or when Auto-update reloads a list, and the daily email check (`vercel-deploy/lib/alerts.js`) always fetches fresh.
