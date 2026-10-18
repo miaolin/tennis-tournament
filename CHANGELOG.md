@@ -5,6 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- Daily email alerts didn't find the Upstash Redis settings when the store was connected with a name prefix (for example `tennis_tournament_KV_REST_API_URL`). Prefixed and unprefixed names now both work.
+
+### Changed
+
+- README: the email alerts section now says they're live, gives a one-line test that works with Vercel's encrypted `CRON_SECRET`, and notes that the first alerts may land in spam.
+
 ## [1.2.0] - 2026-10-18
 
 ### Added
