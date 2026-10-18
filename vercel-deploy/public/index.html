@@ -208,6 +208,17 @@
   .hidden-panel li:first-child { border-top: 0; }
   .hidden-panel li > span { flex: 1; min-width: 0; }
   .hidden-panel .note { display: block; }
+  /* In-app player alerts: bell button with unread count, and the alerts panel */
+  .alerts-btn { position: relative; }
+  .alerts-btn .badge { display: inline-block; min-width: 18px; margin-left: 6px; padding: 1px 5px; border-radius: 999px; background: #d9534f; color: #fff;
+    font: 700 11px Inter, sans-serif; text-align: center; box-sizing: border-box; }
+  .alerts-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 8px; }
+  .alerts-head h2 { margin: 0 auto 0 0; }
+  .hidden-panel li.alert { align-items: flex-start; }
+  .alert.unread { box-shadow: inset 4px 0 0 var(--court); }
+  .alert p { margin: 3px 0 0; font-size: 13px; }
+  .alert .out { color: #d9534f; }
+  .alert .in { color: var(--court); }
   .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 20; display: flex; align-items: center; gap: 14px;
     padding: 10px 12px 10px 16px; border-radius: 12px; background: var(--ink); color: var(--bg); font: 500 14px Inter, sans-serif;
     box-shadow: 0 8px 24px rgba(0,0,0,.3); max-width: calc(100vw - 32px); }
@@ -268,6 +279,7 @@
       <button data-step="-1" aria-label="Previous year">‹</button><span id="yearLabel"></span><button data-step="1" aria-label="Next year">›</button>
     </div>
     <label class="grow">Search <input type="search" id="q" placeholder="Tournament, city, country or loaded player…"></label>
+    <button id="alertsBtn" class="hidden-btn alerts-btn" aria-expanded="false" aria-controls="alertsPanel">🔔 Alerts</button>
     <button id="hiddenBtn" class="hidden-btn" aria-expanded="false" hidden>Hidden (0)</button>
   </div>
   <div class="months" id="monthStrip" role="group" aria-label="Month"></div>
@@ -279,6 +291,7 @@
   <div class="chips" id="typeChips" role="group" aria-label="Tournament type"></div>
 </div>
 
+<section class="wrap hidden-panel" id="alertsPanel" hidden></section>
 <section class="wrap hidden-panel" id="hiddenPanel" hidden></section>
 <main class="wrap" id="list"><div class="status">Loading tournaments…</div></main>
 
@@ -737,13 +750,13 @@ async function restore(entry) {
 }
 
 let toastTimer;
-function toast(text, undo) {
+function toast(text, undo, label = "Undo") {
   document.querySelector(".toast")?.remove();
   clearTimeout(toastTimer);
   const el = document.createElement("div");
   el.className = "toast";
   el.setAttribute("role", "status");
-  el.innerHTML = `<span>${esc(text)}</span>${undo ? "<button>Undo</button>" : ""}`;
+  el.innerHTML = `<span>${esc(text)}</span>${undo ? `<button>${esc(label)}</button>` : ""}`;
   if (undo) el.querySelector("button").addEventListener("click", () => { el.remove(); undo(); });
   document.body.append(el);
   toastTimer = setTimeout(() => el.remove(), 6000);
@@ -803,8 +816,151 @@ $("#typeChips").addEventListener("click", (e) => {
 new ResizeObserver(([e]) => document.documentElement.style.setProperty("--controls-h",
   getComputedStyle(e.target).position === "sticky" ? `${e.target.getBoundingClientRect().height}px` : "1px"))
   .observe(document.querySelector(".controls"));
+// ---------------------------------------------------------------- In-app player alerts
+// While the site is open (even in a background tab), once an hour it checks the player lists of every
+// tournament starting within WATCH_DAYS days, compares each with the list saved in this browser at the
+// previous check, and records any change as an alert: a toast, the Alerts list, and a desktop notification
+// if allowed. Lists and alerts are kept in this browser only; the first check of a tournament just saves it.
+const WATCH_DAYS = 15, WATCH_MIN = 60, MAX_ALERTS = 50;
+const saved = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+state.alerts = saved.get("playerAlerts", []);
+let watching = false;
+
+async function watchPlayers(force = false) {
+  if (watching || (!force && Date.now() - saved.get("watchAt", 0) < WATCH_MIN * 60e3)) return;
+  watching = true;
+  saved.set("watchAt", Date.now()); // set first, so another open tab doesn't run the same check
+  try {
+    const from = localDay(new Date()), to = numDay(dayNum(from) + WATCH_DAYS);
+    const r = await fetch(`/api/tournaments?from=${from}&to=${to}`);
+    if (!r.ok) return;
+    const list = (await r.json()).tournaments.filter((t) => t.startDate >= from && t.startDate <= to);
+    const snaps = saved.get("playerSnapshots", {});
+    const found = [];
+    for (const t of list) {
+      const k = key(t);
+      const params = new URLSearchParams({ tour: t.tour, id: t.id, year: t.year, start: t.startDate, end: t.endDate });
+      let p;
+      try {
+        const res = await fetch(`/api/players?${params}`);
+        if (!res.ok) continue;
+        p = await res.json();
+      } catch { continue; }
+      const slim = (es) => es.map((e) => ({ names: e.names, entry: e.entry || "" }));
+      const prev = snaps[k];
+      snaps[k] = { end: t.endDate, singles: slim(p.singles), doubles: slim(p.doubles) };
+      if (!prev) continue;
+      const ch = diffPlayers(prev, p);
+      if (!ch.removed.length && !ch.added.length && !ch.moved.length) continue;
+      const who = (es) => es.map((e) => e.names.join(" / "));
+      // A list that was empty is newly published: keep just the count, not every name.
+      const published = !prev.singles.length && !prev.doubles.length ? ch.added.length : 0;
+      found.push({ key: k, name: t.name, level: levelLabel(t), start: t.startDate, end: t.endDate, at: Date.now(), unread: true,
+        published, removed: who(ch.removed), added: published ? [] : who(ch.added),
+        moved: ch.moved.map((m) => ({ names: m.names.join(" / "), from: m.from || "", to: m.to || "" })) });
+    }
+    for (const k in snaps) if (snaps[k].end < from) delete snaps[k]; // forget finished tournaments
+    saved.set("playerSnapshots", snaps);
+    saved.set("watchInfo", { at: Date.now(), count: list.length });
+    if (found.length) {
+      state.alerts = [...found, ...saved.get("playerAlerts", [])].slice(0, MAX_ALERTS);
+      saved.set("playerAlerts", state.alerts);
+      const names = found.map((a) => a.name).join(", ");
+      toast(`Player list changes: ${names}`, () => openAlerts(true), "Show");
+      if ("Notification" in window && Notification.permission === "granted") {
+        try { new Notification("Player list changes", { body: names }); } catch {}
+      }
+    }
+    renderAlerts();
+  } catch (e) {
+    console.warn("Player alert check failed", e);
+  } finally {
+    watching = false;
+  }
+}
+
+function alertText(a) {
+  if (a.published) return `<p class="in">Player list published: ${a.published} entries</p>`;
+  const entry = (c) => ENTRY[c] || c || "–";
+  return (a.removed.length ? `<p class="out"><b>Withdrawn:</b> ${esc(a.removed.join(", "))}</p>` : "")
+    + (a.added.length ? `<p class="in"><b>Added:</b> ${esc(a.added.join(", "))}</p>` : "")
+    + (a.moved.length ? `<p><b>Moved:</b> ${a.moved.map((m) => `${esc(m.names)} (${esc(entry(m.from))} → ${esc(entry(m.to))})`).join(", ")}</p>` : "");
+}
+
+function renderAlerts() {
+  const btn = $("#alertsBtn"), panel = $("#alertsPanel");
+  const unread = state.alerts.filter((a) => a.unread).length;
+  btn.innerHTML = `🔔 Alerts${unread ? `<span class="badge">${unread}</span>` : ""}`;
+  btn.setAttribute("aria-label", `Player alerts, ${unread} new`);
+  const open = btn.getAttribute("aria-expanded") === "true";
+  panel.hidden = !open;
+  if (!open) return;
+  const info = saved.get("watchInfo", null);
+  const when = (ms) => new Date(ms).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  const canAsk = "Notification" in window && Notification.permission === "default";
+  panel.innerHTML = `<div class="alerts-head"><h2>Player alerts</h2>
+      ${canAsk ? '<button class="restore-btn" data-alerts="notify">Turn on desktop notifications</button>' : ""}
+      <button class="restore-btn" data-alerts="check">Check now</button>
+      ${state.alerts.length ? '<button class="restore-btn" data-alerts="clear">Clear all</button>' : ""}</div>
+    <p class="note">Checked every hour while this site is open: player lists of tournaments starting within ${WATCH_DAYS} days.
+      ${watching ? "Checking now…" : info ? `Last check ${when(info.at)} (${info.count} tournaments).` : "Not checked yet."}</p>`
+    + (state.alerts.length
+      ? `<ul>${state.alerts.map((a, i) => `<li class="alert${a.unread ? " unread" : ""}"><span><strong>${esc(a.name)}</strong>
+          <span class="note">${esc(a.level)} · starts ${fmt(a.start, { month: "short", day: "numeric" })} · found ${when(a.at)}</span>
+          ${alertText(a)}</span>
+          <button class="restore-btn" data-go="${i}">Open</button></li>`).join("")}</ul>`
+      : `<p class="note">No changes found yet. The first check only saves each list; changes show here from the next check on.</p>`);
+}
+
+function openAlerts(open) {
+  $("#alertsBtn").setAttribute("aria-expanded", open);
+  renderAlerts();
+  if (open) {
+    // Seen: clear the unread marks once shown (the panel keeps the highlight until it's next drawn).
+    if (state.alerts.some((a) => a.unread)) {
+      state.alerts = state.alerts.map((a) => ({ ...a, unread: false }));
+      saved.set("playerAlerts", state.alerts);
+      $("#alertsBtn").innerHTML = "🔔 Alerts";
+    }
+    $("#alertsPanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+}
+
+// Open an alert's tournament: its month in the list view, all tours and types, details open.
+async function goToTournament(a) {
+  state.tour = "ALL"; state.type = ""; $("#q").value = "";
+  document.querySelectorAll("#tourSeg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.tour === "ALL"));
+  setView("list");
+  state.month = a.start.slice(0, 7);
+  if (+a.start.slice(0, 4) !== state.year) { state.year = +a.start.slice(0, 4); await load(); }
+  state.open.add(a.key);
+  render();
+  loadPlayers(a.key, true);
+  document.querySelector(`.card[data-key="${CSS.escape(a.key)}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+$("#alertsBtn").addEventListener("click", (e) => openAlerts(e.currentTarget.getAttribute("aria-expanded") !== "true"));
+$("#alertsPanel").addEventListener("click", async (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.go) return goToTournament(state.alerts[+b.dataset.go]);
+  if (b.dataset.alerts === "clear") { state.alerts = []; saved.set("playerAlerts", []); }
+  if (b.dataset.alerts === "notify") await Notification.requestPermission();
+  if (b.dataset.alerts === "check") { const run = watchPlayers(true); renderAlerts(); await run; }
+  renderAlerts();
+});
+// Another open tab of the site found changes: show them here too.
+window.addEventListener("storage", (e) => {
+  if (e.key === "playerAlerts") { state.alerts = saved.get("playerAlerts", []); renderAlerts(); }
+});
+
 loadHidden();
 load();
+renderAlerts();
+watchPlayers();
+setInterval(watchPlayers, 5 * 60e3); // runs the check once it's WATCH_MIN minutes since the last one
 </script>
 </body>
 </html>

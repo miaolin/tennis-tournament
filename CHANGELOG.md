@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- In-app player alerts. While the site is open, even in a background tab, it checks the player lists of every tournament starting within 15 days once an hour. It compares them with the lists saved in this browser at the previous check, and records each change as an alert: players withdrawn, added or moved, or a list newly published.
+  - New alerts show as a notice, and the 🔔 Alerts button gives a count of new ones.
+  - The Alerts list has an Open button that jumps to the tournament, plus Check now, Clear all, and an option to turn on desktop notifications.
+  - Alerts and saved lists stay in your browser. The first check of each tournament only saves its list. The daily email is separate and unchanged.
+
 ### Fixed
 
 - Daily email alerts didn't find the Upstash Redis settings when the store was connected with a name prefix (for example `tennis_tournament_KV_REST_API_URL`). Prefixed and unprefixed names now both work.
