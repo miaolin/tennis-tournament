@@ -178,14 +178,14 @@
   .players { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 16px; }
   .players li { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; border-bottom: 1px dashed var(--line); font-size: 14px; }
   /* Player photos (local site only): a round photo per player, or their initials while there's none */
-  .players.with-photos { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-  .players.with-photos li { align-items: center; gap: 10px; padding: 6px 0; }
+  .players.with-photos { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .players.with-photos li { align-items: center; gap: 12px; padding: 6px 0; }
   .faces { display: inline-flex; flex: none; }
-  .faces > * { width: 52px; height: 52px; border-radius: 50%; border: 2px solid var(--surface); box-sizing: border-box; flex: none; }
-  .faces > * + * { margin-left: -16px; }
+  .faces > * { width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--surface); box-sizing: border-box; flex: none; }
+  .faces > * + * { margin-left: -20px; }
   .faces img { object-fit: cover; object-position: 50% 12%; background: var(--line); }
   .faces .ini { display: grid; place-items: center; background: color-mix(in srgb, var(--court) 18%, var(--surface)); color: var(--muted);
-    font: 700 15px Inter, sans-serif; }
+    font: 700 18px Inter, sans-serif; }
   .players .cc { font-size: 11px; font-weight: 600; color: var(--muted); min-width: 32px; }
   .players .seed { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--clay); }
   /* Local editing: delete button, hidden list, undo toast (only shown when the local server allows editing) */
