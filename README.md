@@ -76,6 +76,8 @@ The local server applies changes on the next page reload. To publish them to the
 
 Once a day a Vercel cron job (`vercel-deploy/api/check-players.js`, scheduled in `vercel-deploy/vercel.json` for 00:00 UTC, which is 08:00 in UTC+8) checks every ATP and WTA tournament starting within the next 15 days. It reloads each player list from the source, compares it with the list saved the day before, and emails you the changes: players withdrawn, added, or moved (for example from qualifying to the main draw), and lists published for the first time. No changes, no email. A tournament's first check only saves its list.
 
+**Status:** set up and running on the live site since 2026-10-18 (a test email was received).
+
 The job uses two free services, which need accounts you create yourself:
 
 1. **Resend** (sends the email): sign up at https://resend.com with the address that should receive the alerts, then create an API key. Without your own verified domain, Resend only delivers to the address of your Resend account.
@@ -93,15 +95,15 @@ vercel --prod
 
 Optional: `ALERT_FROM` sets the sender (default `Tennis alerts <onboarding@resend.dev>`; your own needs a domain verified in Resend).
 
-To check the setup, call the job by hand with `?test=1`, which emails you even when nothing changed:
+To check the setup, call the job by hand with `?test=1`, which emails you even when nothing changed. Vercel stores `CRON_SECRET` encrypted and `vercel env pull` can't read it back, so this replaces the secret with a new one, redeploys so the new value takes effect, and calls the job with it, all in one line. Run it in a terminal from `vercel-deploy/` (in Claude Code, prefix it with `!`):
 
 ```sh
-vercel env pull .env.check --environment production   # gets CRON_SECRET
-curl -H "Authorization: Bearer $(grep CRON_SECRET .env.check | cut -d'"' -f2)" "https://tennis-tournament-vercel-deploy.vercel.app/api/check-players?test=1"
-rm .env.check
+S=$(openssl rand -hex 32) && vercel env rm CRON_SECRET production --yes && printf %s "$S" | vercel env add CRON_SECRET production && vercel deploy --prod --yes >/dev/null && curl -s -H "Authorization: Bearer $S" "https://tennis-tournament-vercel-deploy.vercel.app/api/check-players?test=1"
 ```
 
-Any other caller gets 401. **Locally**, `npm run check-players` runs the same check, saving lists in `data/player-snapshots.json`. It emails if `RESEND_API_KEY` and `ALERT_EMAIL` are set in the environment; otherwise it prints the email. Add `-- --test` to get an email even with no changes.
+It prints the tournaments checked and `"emailed": true`, and the test email arrives within a minute. Any other caller gets 401. Changed settings only apply after a new deployment.
+
+The alerts come from `onboarding@resend.dev`, so the first ones may land in spam; mark them "Not spam". **Locally**, `npm run check-players` runs the same check, saving lists in `data/player-snapshots.json`. It emails if `RESEND_API_KEY` and `ALERT_EMAIL` are set in the environment; otherwise it prints the email. Add `-- --test` to get an email even with no changes.
 
 ## API
 
