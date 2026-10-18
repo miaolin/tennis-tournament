@@ -183,6 +183,8 @@
   .faces { display: inline-flex; flex: none; }
   .faces > * { width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--surface); box-sizing: border-box; flex: none; }
   .faces > * + * { margin-left: -20px; }
+  .faces > a { display: block; overflow: hidden; }
+  .faces > a img { width: 100%; height: 100%; border: 0; border-radius: 50%; display: block; }
   .faces img { object-fit: cover; object-position: 50% 12%; background: var(--line); }
   .faces .ini { display: grid; place-items: center; background: color-mix(in srgb, var(--court) 18%, var(--surface)); color: var(--muted);
     font: 700 18px Inter, sans-serif; }
@@ -578,11 +580,14 @@ function renderPlayers(t, q) {
       + (ch.moved.length ? `<p><b>Moved:</b> ${ch.moved.map((m) => `${esc(m.names.join(" / "))} (${esc(ENTRY[m.from] || m.from || "–")} → ${esc(ENTRY[m.to] || m.to || "–")})`).join(", ")}</p>` : "")
     : `<p>No changes since ${time(p.base.at)}.</p>`}</div>`;
   const hl = (s) => q ? esc(s).replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), (m) => `<mark>${m}</mark>`) : esc(s);
-  // Photos (local site): one per player, initials until a photo is found or when there's none.
+  // Photos: one per player, initials until a photo is found or when there's none. Hovering shows the
+  // photo's credit; a Wikimedia Commons photo links to its file page (author and license).
   const initials = (n) => n.split(/[\s-]+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
   const faces = (e) => !state.photosOn ? "" : `<span class="faces">${e.names.map((n, i) => {
     const f = e.ids && e.ids[i] && state.photos[`${t.tour}-${e.ids[i]}`];
-    return f ? `<img src="/photos/${encodeURIComponent(f)}" alt="" title="${esc(n)}" loading="lazy">` : `<span class="ini" title="${esc(n)}">${esc(initials(n))}</span>`;
+    if (!f) return `<span class="ini" title="${esc(n)}">${esc(initials(n))}</span>`;
+    const img = `<img src="${esc(f.src)}" alt="" title="${esc(n + (f.credit ? ` · ${f.credit}` : ""))}" loading="lazy" referrerpolicy="no-referrer">`;
+    return f.link ? `<a href="${esc(f.link)}" target="_blank" rel="noopener">${img}</a>` : img;
   }).join("")}</span>`;
   const block = (title, entries) => {
     if (!entries.length) return "";
@@ -679,9 +684,9 @@ async function loadPlayers(k, fresh = false) {
   render();
 }
 
-// Player photos, on the local site only: its server saves each player's photo in photos/ the first time it's
-// needed and reports how many are still being looked up, so this asks again until they're all done.
-// The live site has no photo store (404), so no photos or initials are shown there.
+// Player photos. The local server saves each player's photo in photos/ the first time it's needed and
+// reports how many are still being looked up, so this asks again until they're all done. The live site
+// answers from its published list of photo addresses (vercel-deploy/data/photos.json).
 async function loadPhotos(t, list, tries = 0) {
   if (state.photosOn === false) return;
   const players = [...list.singles, ...list.doubles]

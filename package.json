@@ -3,6 +3,6 @@
   "version": "1.2.0",
   "description": "ATP & WTA tournament calendar with dates, venues and player lists",
   "main": "server.js",
-  "scripts": { "start": "node server.js", "check-players": "node scripts/check-players.js", "fetch-photos": "node scripts/fetch-photos.js" },
+  "scripts": { "start": "node server.js", "check-players": "node scripts/check-players.js", "fetch-photos": "node scripts/fetch-photos.js", "export-photos": "node scripts/export-photos.js" },
   "engines": { "node": ">=18" }
 }

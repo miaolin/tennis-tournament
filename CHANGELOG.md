@@ -7,11 +7,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- Player photos in the player lists on the local site. They're looked up the first time a list is opened, saved in `photos/` and shown in round frames, with initials when there's no photo.
+- Player photos in the player lists, shown in round frames, with initials when there's no photo. Hovering shows the credit, and Wikimedia Commons photos link to their file page.
   - Sources: official WTA headshots for WTA players, ESPN headshots for ATP players where ESPN has them, and otherwise the player's Wikipedia photo, checked against their birth year.
-  - `npm run fetch-photos` downloads them ahead of time.
+  - The local site downloads each photo once into `photos/`, which isn't committed. `npm run fetch-photos` downloads them ahead of time.
+  - The live site loads each photo from its original host (WTA, ESPN or Wikimedia Commons) using the addresses in `vercel-deploy/data/photos.json`, which `npm run export-photos` writes (445 players so far). No image files are published.
   - Player lists now include each player's WTA or ESPN id.
-  - The live site doesn't show photos.
 
 - In-app player alerts. While the site is open, even in a background tab, it checks the player lists of every tournament starting within 15 days once an hour. It compares them with the lists saved in this browser at the previous check, and records each change as an alert: players withdrawn, added or moved, or a list newly published.
   - New alerts show as a notice, and the 🔔 Alerts button gives a count of new ones.
