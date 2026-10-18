@@ -226,10 +226,36 @@
   .alerts-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 8px; }
   .alerts-head h2 { margin: 0 auto 0 0; }
   .hidden-panel li.alert { align-items: flex-start; }
-  .alert.unread { box-shadow: inset 4px 0 0 var(--court); }
-  .alert p { margin: 3px 0 0; font-size: 13px; }
-  .alert .out { color: #d9534f; }
-  .alert .in { color: var(--court); }
+  .alert.unread { box-shadow: inset 4px 0 0 var(--court); background: color-mix(in srgb, var(--court) 7%, var(--surface)); }
+  .alert.read > span { opacity: .62; }
+  .alert-title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  /* Folding: the alert's title is a button; a folded alert shows a one-line count of its changes */
+  .fold { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+  .fold:focus-visible { outline: 2px solid var(--court); outline-offset: 2px; border-radius: 4px; }
+  .fold .chev { display: inline-block; width: 12px; font-size: 16px; line-height: 1; color: var(--muted); transition: transform .15s; }
+  .fold[aria-expanded="true"] .chev { transform: rotate(90deg); }
+  .sum { margin-top: 5px; font: 600 12px Inter, sans-serif; }
+  .sum .out { color: #e5655f; } .sum .in { color: var(--court); } .sum .mv { color: #e0a43a; }
+  .alert-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
+  /* Read / unread label: a small switch on each alert */
+  .state { all: unset; cursor: pointer; font: 700 10px Inter, sans-serif; text-transform: uppercase; letter-spacing: .06em;
+    padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .state.new { background: var(--court); border-color: var(--court); color: #fff; }
+  .state:focus-visible { outline: 2px solid var(--court); outline-offset: 2px; }
+  /* The differences: one chip per player, colored by the kind of change */
+  .diff { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 7px; }
+  .diff .kind { font: 700 11px Inter, sans-serif; text-transform: uppercase; letter-spacing: .05em; margin-right: 2px; min-width: 76px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; font-size: 13px; line-height: 1.5;
+    border: 1px solid; white-space: nowrap; }
+  .chip b { font-weight: 800; }
+  .diff.out .kind { color: #e5655f; }
+  .diff.out .chip { color: #e5655f; border-color: color-mix(in srgb, #e5655f 45%, transparent); background: color-mix(in srgb, #e5655f 12%, transparent); }
+  .diff.out .chip span { text-decoration: line-through; text-decoration-thickness: 1.5px; }
+  .diff.in .kind { color: var(--court); }
+  .diff.in .chip { color: var(--court); border-color: color-mix(in srgb, var(--court) 45%, transparent); background: color-mix(in srgb, var(--court) 12%, transparent); }
+  .diff.mv .kind { color: #e0a43a; }
+  .diff.mv .chip { color: #e0a43a; border-color: color-mix(in srgb, #e0a43a 45%, transparent); background: color-mix(in srgb, #e0a43a 12%, transparent); }
+  .diff.mv .chip i { font-style: normal; opacity: .85; }
   .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 20; display: flex; align-items: center; gap: 14px;
     padding: 10px 12px 10px 16px; border-radius: 12px; background: var(--ink); color: var(--bg); font: 500 14px Inter, sans-serif;
     box-shadow: 0 8px 24px rgba(0,0,0,.3); max-width: calc(100vw - 32px); }
@@ -923,12 +949,34 @@ async function watchPlayers(force = false) {
   }
 }
 
+// An alert's differences, one chip per player: withdrawn (red, struck through), added (green, +),
+// moved between draws (amber, from → to).
 function alertText(a) {
-  if (a.published) return `<p class="in">Player list published: ${a.published} entries</p>`;
+  if (a.published) return `<div class="diff in"><span class="kind">Published</span><span class="chip"><b>+</b>${a.published} entries</span></div>`;
   const entry = (c) => ENTRY[c] || c || "–";
-  return (a.removed.length ? `<p class="out"><b>Withdrawn:</b> ${esc(a.removed.join(", "))}</p>` : "")
-    + (a.added.length ? `<p class="in"><b>Added:</b> ${esc(a.added.join(", "))}</p>` : "")
-    + (a.moved.length ? `<p><b>Moved:</b> ${a.moved.map((m) => `${esc(m.names)} (${esc(entry(m.from))} → ${esc(entry(m.to))})`).join(", ")}</p>` : "");
+  const row = (cls, kind, chips) => chips.length ? `<div class="diff ${cls}"><span class="kind">${kind} (${chips.length})</span>${chips.join("")}</div>` : "";
+  return row("out", "Withdrawn", a.removed.map((n) => `<span class="chip"><b>−</b><span>${esc(n)}</span></span>`))
+    + row("in", "Added", a.added.map((n) => `<span class="chip"><b>+</b>${esc(n)}</span>`))
+    + row("mv", "Moved", a.moved.map((m) => `<span class="chip">${esc(m.names)} <i>${esc(entry(m.from))} → ${esc(entry(m.to))}</i></span>`));
+}
+
+// Folded alerts show one line of counts. Unless folded or unfolded by hand, new alerts are unfolded and
+// read ones folded.
+const isFolded = (a) => (a.folded === undefined ? !a.unread : a.folded);
+function alertSummary(a) {
+  if (a.published) return `<div class="sum"><span class="in">+${a.published} published</span></div>`;
+  const parts = [
+    a.removed.length && `<span class="out">−${a.removed.length} withdrawn</span>`,
+    a.added.length && `<span class="in">+${a.added.length} added</span>`,
+    a.moved.length && `<span class="mv">${a.moved.length} moved</span>`,
+  ].filter(Boolean);
+  return `<div class="sum">${parts.join(" · ")}</div>`;
+}
+
+function setRead(indexes, read) {
+  for (const i of indexes) if (state.alerts[i]) state.alerts[i] = { ...state.alerts[i], unread: !read };
+  saved.set("playerAlerts", state.alerts);
+  renderAlerts();
 }
 
 function renderAlerts() {
@@ -945,29 +993,30 @@ function renderAlerts() {
   panel.innerHTML = `<div class="alerts-head"><h2>Player alerts</h2>
       ${canAsk ? '<button class="restore-btn" data-alerts="notify">Turn on desktop notifications</button>' : ""}
       <button class="restore-btn" data-alerts="check">Check now</button>
-      ${state.alerts.length ? '<button class="restore-btn" data-alerts="clear">Clear all</button>' : ""}</div>
+      ${unread ? '<button class="restore-btn" data-alerts="read">Mark all read</button>' : ""}
+      ${state.alerts.length ? '<button class="restore-btn" data-alerts="clear">Clear all</button>' : ""}
+      <button class="restore-btn" data-alerts="close" aria-label="Close player alerts">Close ✕</button></div>
     <p class="note">Checked every hour while this site is open: player lists of tournaments starting within ${WATCH_DAYS} days.
       ${watching ? "Checking now…" : info ? `Last check ${when(info.at)} (${info.count} tournaments).` : "Not checked yet."}</p>`
     + (state.alerts.length
-      ? `<ul>${state.alerts.map((a, i) => `<li class="alert${a.unread ? " unread" : ""}"><span><strong>${esc(a.name)}</strong>
+      ? `<ul>${state.alerts.map((a, i) => `<li class="alert ${a.unread ? "unread" : "read"}"><span>
+          <span class="alert-title"><button class="fold" data-fold="${i}" aria-expanded="${!isFolded(a)}"
+            title="${isFolded(a) ? "Show the changes" : "Fold"}"><span class="chev" aria-hidden="true">▸</span><strong>${esc(a.name)}</strong></button></span>
           <span class="note">${esc(a.level)} · starts ${fmt(a.start, { month: "short", day: "numeric" })} · found ${when(a.at)}</span>
-          ${alertText(a)}</span>
-          <button class="restore-btn" data-go="${i}">Open</button></li>`).join("")}</ul>`
+          ${isFolded(a) ? alertSummary(a) : alertText(a)}</span>
+          <span class="alert-actions">
+            <button class="state${a.unread ? " new" : ""}" data-read="${i}" aria-pressed="${!a.unread}"
+              title="${a.unread ? "Mark as read" : "Mark as unread"}">${a.unread ? "New" : "Read"}</button>
+            <button class="restore-btn" data-go="${i}">Open</button>
+          </span></li>`).join("")}</ul>`
       : `<p class="note">No changes found yet. The first check only saves each list; changes show here from the next check on.</p>`);
 }
 
 function openAlerts(open) {
   $("#alertsBtn").setAttribute("aria-expanded", open);
   renderAlerts();
-  if (open) {
-    // Seen: clear the unread marks once shown (the panel keeps the highlight until it's next drawn).
-    if (state.alerts.some((a) => a.unread)) {
-      state.alerts = state.alerts.map((a) => ({ ...a, unread: false }));
-      saved.set("playerAlerts", state.alerts);
-      $("#alertsBtn").innerHTML = "🔔 Alerts";
-    }
-    $("#alertsPanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }
+  // Alerts stay New until marked read (its label, Mark all read) or opened.
+  if (open) $("#alertsPanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 // Open an alert's tournament: its month in the list view, all tours and types, details open.
@@ -986,7 +1035,17 @@ async function goToTournament(a) {
 $("#alertsBtn").addEventListener("click", (e) => openAlerts(e.currentTarget.getAttribute("aria-expanded") !== "true"));
 $("#alertsPanel").addEventListener("click", async (e) => {
   const b = e.target.closest("button"); if (!b) return;
-  if (b.dataset.go) return goToTournament(state.alerts[+b.dataset.go]);
+  if (b.dataset.fold) {
+    const i = +b.dataset.fold;
+    state.alerts[i] = { ...state.alerts[i], folded: !isFolded(state.alerts[i]) };
+    saved.set("playerAlerts", state.alerts);
+    renderAlerts();
+    return document.querySelector(`[data-fold="${i}"]`)?.focus();
+  }
+  if (b.dataset.alerts === "close") { openAlerts(false); return $("#alertsBtn").focus(); }
+  if (b.dataset.read) return setRead([+b.dataset.read], state.alerts[+b.dataset.read].unread);
+  if (b.dataset.go) { setRead([+b.dataset.go], true); return goToTournament(state.alerts[+b.dataset.go]); }
+  if (b.dataset.alerts === "read") return setRead(state.alerts.map((_, i) => i), true);
   if (b.dataset.alerts === "clear") { state.alerts = []; saved.set("playerAlerts", []); }
   if (b.dataset.alerts === "notify") await Notification.requestPermission();
   if (b.dataset.alerts === "check") { const run = watchPlayers(true); renderAlerts(); await run; }
