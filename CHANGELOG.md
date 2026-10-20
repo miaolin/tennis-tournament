@@ -7,6 +7,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- Choosing a month (or All) in the list view jumps to its first in-progress tournament, past the completed ones.
 - Each alert has a Dismiss ✕ link that removes just that alert, so it no longer shows. Clear all still removes every alert.
 
 ### Changed
