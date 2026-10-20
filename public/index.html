@@ -501,9 +501,15 @@ function render() {
 }
 
 // In the list, jump to the first in-progress tournament shown, if there is one: on opening the site and
-// on choosing a month, tour or type.
+// on choosing a month, tour or type. A short list gets room below it, so that tournament can still reach the top.
 function jumpToLive() {
-  if (state.view === "list") document.querySelector("#list .card.st-live")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const list = $("#list"), live = state.view === "list" && list.querySelector(".card.st-live");
+  list.style.paddingBottom = "";
+  if (!live) return;
+  const page = document.documentElement;
+  const short = live.getBoundingClientRect().top + scrollY - parseFloat(getComputedStyle(live).scrollMarginTop) + innerHeight - page.scrollHeight;
+  if (short > 0) list.style.paddingBottom = `${parseFloat(getComputedStyle(list).paddingBottom) + short}px`;
+  live.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function renderList(list, q) {
