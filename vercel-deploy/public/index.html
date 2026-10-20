@@ -240,7 +240,8 @@
   .fold-link { all: unset; cursor: pointer; font: 600 12px Inter, sans-serif; color: var(--court); text-decoration: underline; text-underline-offset: 2px; }
   .fold-link:focus-visible { outline: 2px solid var(--court); outline-offset: 2px; border-radius: 4px; }
   .sum .out { color: #e5655f; } .sum .in { color: var(--court); } .sum .mv { color: #e0a43a; }
-  .alert-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
+  /* .hidden-panel li > span would stretch this column too: keep it just as wide as its buttons */
+  .hidden-panel .alert-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
   /* Read / unread label: a small switch on each alert */
   .state { all: unset; cursor: pointer; font: 700 10px Inter, sans-serif; text-transform: uppercase; letter-spacing: .06em;
     padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
