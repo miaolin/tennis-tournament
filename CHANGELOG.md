@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- Each alert has a Dismiss ✕ link that removes just that alert, so it no longer shows. Clear all still removes every alert.
+
 ### Changed
 
 - Alerts are easier to read. Each alert has a Show players / Hide link next to its counts, so it no longer unfolds only through its title. Opening an alert shows its changes (withdrawn, added, moved) above the tournament's player list, and its added players are tagged New.
