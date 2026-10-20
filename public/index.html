@@ -388,6 +388,7 @@ async function load() {
     state.months = rangeMonths();
     if (state.month && !state.months.includes(state.month)) state.month = "";
     render();
+    jumpToLive();
   } catch (e) {
     $("#list").innerHTML = `<div class="status">Couldn't load tournaments: ${esc(e.message)}</div>`;
   }
@@ -497,6 +498,12 @@ function render() {
   const list = pool.filter((t) => !state.type || tier(t) === state.type);
   if (!list.length) { $("#list").innerHTML = '<div class="status">No tournaments match.</div>'; return; }
   $("#list").innerHTML = state.view === "calendar" ? renderCalendar(list, q) : renderList(list, q);
+}
+
+// In the list, jump to the first in-progress tournament shown, if there is one: on opening the site and
+// on choosing a month, tour or type.
+function jumpToLive() {
+  if (state.view === "list") document.querySelector("#list .card.st-live")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function renderList(list, q) {
@@ -756,6 +763,7 @@ $("#tourSeg").addEventListener("click", (e) => {
   state.tour = b.dataset.tour;
   document.querySelectorAll("#tourSeg button").forEach((x) => x.setAttribute("aria-pressed", x === b));
   render();
+  jumpToLive();
 });
 function setView(view) {
   state.view = view;
@@ -880,13 +888,13 @@ $("#monthStrip").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
   state.month = b.dataset.month;
   render();
-  // In the list, jump to the month's first in-progress tournament, if it has one.
-  if (state.view === "list") document.querySelector("#list .card.st-live")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  jumpToLive();
 });
 $("#typeChips").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
   state.type = b.dataset.type;
   render();
+  jumpToLive();
 });
 // Keep the month bars docked right under the sticky filter bar, whose height changes when it wraps.
 new ResizeObserver(([e]) => document.documentElement.style.setProperty("--controls-h",
