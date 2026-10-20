@@ -1014,6 +1014,7 @@ function renderAlerts() {
             <button class="state${a.unread ? " new" : ""}" data-read="${i}" aria-pressed="${!a.unread}"
               title="${a.unread ? "Mark as read" : "Mark as unread"}">${a.unread ? "New" : "Read"}</button>
             <button class="restore-btn" data-go="${i}">Open</button>
+            <button class="fold-link" data-dismiss="${i}" title="Remove this alert" aria-label="Dismiss alert: ${esc(a.name)}">Dismiss ✕</button>
           </span></li>`).join("")}</ul>`
       : `<p class="note">No changes found yet. The first check only saves each list; changes show here from the next check on.</p>`);
 }
@@ -1052,6 +1053,7 @@ $("#alertsPanel").addEventListener("click", async (e) => {
   if (b.dataset.alerts === "close") { openAlerts(false); return $("#alertsBtn").focus(); }
   if (b.dataset.read) return setRead([+b.dataset.read], state.alerts[+b.dataset.read].unread);
   if (b.dataset.go) { setRead([+b.dataset.go], true); return goToTournament(state.alerts[+b.dataset.go]); }
+  if (b.dataset.dismiss) { state.alerts.splice(+b.dataset.dismiss, 1); saved.set("playerAlerts", state.alerts); }
   if (b.dataset.alerts === "read") return setRead(state.alerts.map((_, i) => i), true);
   if (b.dataset.alerts === "clear") { state.alerts = []; saved.set("playerAlerts", []); }
   if (b.dataset.alerts === "notify") await Notification.requestPermission();
