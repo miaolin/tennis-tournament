@@ -156,6 +156,12 @@
   .name { font: 600 17px/1.25 Fraunces, Georgia, serif; }
   .meta { color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 2px; }
   .dates { text-align: right; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  /* Completed tournaments: one line per final. The first line's room is kept while it loads, so cards don't grow. */
+  .champs { display: grid; gap: 2px; min-height: 18px; margin-top: 6px; font-size: 13px; line-height: 18px; }
+  .champ .ev { display: inline-block; min-width: 62px; font: 700 10.5px Inter, sans-serif; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .champ b { font-weight: 700; }
+  .champ .sc, .champs .none { color: var(--muted); }
+  .champ .sc { margin-left: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; }
   /* Status: colored pill plus a stripe on the card's left edge */
   .status-pill { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; padding: 2px 8px; border-radius: 999px;
     font-size: 11px; font-weight: 600; color: var(--st); background: color-mix(in srgb, var(--st) 15%, transparent); }
@@ -498,6 +504,7 @@ function render() {
   const list = pool.filter((t) => !state.type || tier(t) === state.type);
   if (!list.length) { $("#list").innerHTML = '<div class="status">No tournaments match.</div>'; return; }
   $("#list").innerHTML = state.view === "calendar" ? renderCalendar(list, q) : renderList(list, q);
+  loadResults();
 }
 
 // In the list, jump to the first in-progress tournament shown, if there is one: on opening the site and
@@ -542,6 +549,7 @@ function cardHTML(t, q) {
           ${t.surface ? `<span>${esc(t.surface)}</span>` : ""}
           ${t.prizeMoney ? `<span>${esc(t.prizeMoney)}</span>` : ""}
         </div>
+        ${status[0] === "done" ? champsHTML(t) : ""}
       </span>
       <span class="dates">${fmt(t.startDate, { month: "short", day: "numeric" })} – ${fmt(t.endDate, { month: "short", day: "numeric" })}<span class="chev">›</span>
         <br><span class="status-pill">${status[1]}</span></span>
@@ -1082,6 +1090,53 @@ $("#alertsPanel").addEventListener("click", async (e) => {
 window.addEventListener("storage", (e) => {
   if (e.key === "playerAlerts") { state.alerts = saved.get("playerAlerts", []); renderAlerts(); }
 });
+
+// ---------------------------------------------------------------- Champions of completed tournaments
+
+// Each completed tournament shows its singles and doubles finals. A final never changes, so results are
+// kept in this browser; one that isn't available yet is asked for again on the next visit.
+const resultKey = (t) => `${t.tour}:${t.id}:${t.year}`;
+state.results = saved.get("results", {});
+const resultsTried = new Set(), resultsPending = new Set(), resultsQueue = [];
+let resultsRunning = 0;
+
+function champsHTML(t) {
+  const k = resultKey(t), r = state.results[k];
+  if (!r) return `<div class="champs">${resultsTried.has(k) && !resultsPending.has(k) ? '<span class="none">No final result available</span>' : ""}</div>`;
+  const line = (label, f) => !f ? "" : `<div class="champ" title="${esc(`${f.full.winner.join(" / ")} d. ${f.full.loser.join(" / ")}`)}">
+    <span class="ev">${label}</span>🏆 <b>${esc(f.winner.join(" / "))}</b> d. ${esc(f.loser.join(" / "))}<span class="sc">${esc([f.score, f.note].filter(Boolean).join(" "))}</span></div>`;
+  return `<div class="champs">${line("Singles", r.singles)}${line("Doubles", r.doubles)}</div>`;
+}
+
+// Ask for the results of the completed tournaments shown, four at a time.
+function loadResults() {
+  for (const card of document.querySelectorAll("#list .card.st-done")) {
+    const t = state.tournaments.find((x) => key(x) === card.dataset.key), k = t && resultKey(t);
+    if (!t || state.results[k] || resultsTried.has(k)) continue;
+    resultsTried.add(k); resultsPending.add(k); resultsQueue.push(t);
+  }
+  while (resultsRunning < 4 && resultsQueue.length) fetchResult(resultsQueue.shift());
+}
+
+async function fetchResult(t) {
+  resultsRunning++;
+  try {
+    const params = new URLSearchParams({ tour: t.tour, id: t.id, year: t.year, start: t.startDate, end: t.endDate });
+    const r = await fetch(`/api/results?${params}`);
+    const data = await r.json();
+    if (r.ok && (data.singles || data.doubles)) {
+      state.results[resultKey(t)] = data;
+      saved.set("results", state.results);
+    }
+  } catch (e) {
+    console.warn("Couldn't load results", t.name, e);
+  }
+  resultsRunning--;
+  resultsPending.delete(resultKey(t));
+  // Update just this tournament's line: re-rendering a whole year's list for each result would stall the page.
+  for (const el of document.querySelectorAll(`#list .card[data-key="${CSS.escape(key(t))}"] .champs`)) el.outerHTML = champsHTML(t);
+  loadResults();
+}
 
 loadHidden();
 load();

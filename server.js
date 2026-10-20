@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, "public");
 // Hand-maintained list of tournaments to remove; shared with the Vercel deployment.
 const HIDDEN_FILE = path.join(__dirname, "vercel-deploy", "data", "hidden.json");
-const { isHidden } = require("./vercel-deploy/lib/tennis");
+const { isHidden, wtaResults, atpResults } = require("./vercel-deploy/lib/tennis");
 const photos = require("./lib/photos");
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const UA =
@@ -326,6 +326,15 @@ async function handleApi(req, url, res) {
     if (tour === "ATP") {
       if (!isDate(q.get("start")) || !isDate(q.get("end"))) return send(res, 400, { error: "start/end required" });
       return send(res, 200, await atpPlayers(q.get("id"), q.get("start"), q.get("end"), fresh));
+    }
+    return send(res, 400, { error: "tour must be ATP or WTA" });
+  }
+  if (url.pathname === "/api/results") {
+    const tour = (q.get("tour") || "").toUpperCase();
+    if (tour === "WTA") return send(res, 200, await wtaResults(encodeURIComponent(q.get("id")), encodeURIComponent(q.get("year"))));
+    if (tour === "ATP") {
+      if (!isDate(q.get("start")) || !isDate(q.get("end"))) return send(res, 400, { error: "start/end required" });
+      return send(res, 200, await atpResults(q.get("id"), q.get("start"), q.get("end")));
     }
     return send(res, 400, { error: "tour must be ATP or WTA" });
   }

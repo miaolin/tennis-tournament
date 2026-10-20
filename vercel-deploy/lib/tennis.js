@@ -205,6 +205,68 @@ async function atpPlayers(id, start, end, fresh = false) {
   return result;
 }
 
+// ---------------------------------------------------------------- Results (finals)
+
+// The singles and doubles finals of a tournament: { singles, doubles }, each null until it's played, else
+// { winner: [names], loser: [names], score: "2-6 6-4 6-2", note: "ret." | "w/o" | null }. Names are short
+// ("M. Chwalinska"), the full name being in `full`. Scores are from the winner's side, tiebreaks as 7-6(5)
+// and a deciding match tiebreak as [10-6].
+const matchTiebreak = (lost) => `[${Math.max(10, lost + 2)}-${lost}]`;
+async function wtaResults(id, year) {
+  const data = await getJSON(`${WTA_API}/${id}/${year}/matches`);
+  const out = { singles: null, doubles: null };
+  for (const m of data.matches || []) {
+    if (m.DrawLevelType !== "M" || m.RoundID !== "F" || m.MatchState !== "F") continue;
+    const key = m.DrawMatchType === "S" ? "singles" : m.DrawMatchType === "D" ? "doubles" : null;
+    // Winner: 2, 4, 6 = side A (won, by retirement, by walkover); 3, 5, 7 = side B.
+    const w = Number(m.Winner);
+    if (!key || !(w >= 2 && w <= 7)) continue;
+    const side = (s) => [["", ""], ["2", "2"]].map(([n]) => [m[`PlayerNameFirst${s}${n}`], m[`PlayerNameLast${s}${n}`]]).filter(([, last]) => last);
+    const [win, lose] = w % 2 === 0 ? [side("A"), side("B")] : [side("B"), side("A")];
+    const raw = (m.ScoreString || "").trim();
+    out[key] = {
+      winner: win.map(([first, last]) => `${first ? first[0] + ". " : ""}${last}`),
+      loser: lose.map(([first, last]) => `${first ? first[0] + ". " : ""}${last}`),
+      full: { winner: win.map((p) => p.join(" ").trim()), loser: lose.map((p) => p.join(" ").trim()) },
+      score: /W\/O/i.test(raw) ? "" : raw.replace(/\s*Ret'?d/i, "").split(",")
+        .map((set) => set.replace(/^1-0\((\d+)\)$/, (_, lost) => matchTiebreak(+lost))).join(" "),
+      note: /W\/O/i.test(raw) ? "w/o" : /Ret/i.test(raw) ? "ret." : null,
+    };
+  }
+  return out;
+}
+
+async function atpResults(id, start, end) {
+  const data = await getJSON(`${ESPN_ATP}?dates=${ymd(start)}-${ymd(end)}`);
+  const ev = (data.events || []).find((e) => e.id === id);
+  const out = { singles: null, doubles: null };
+  for (const g of (ev && ev.groupings) || []) {
+    const label = (g.grouping && g.grouping.displayName) || "";
+    // Combined events (Beijing) also carry the women's draws, which the WTA feed covers.
+    const key = /women/i.test(label) ? null : /double/i.test(label) ? "doubles" : /single/i.test(label) ? "singles" : null;
+    if (!key || out[key]) continue;
+    const c = (g.competitions || []).find((c) => c.round && c.round.displayName === "Final");
+    const done = c && c.status && c.status.type && c.status.type.completed;
+    const win = done && c.competitors.find((x) => x.winner), lose = done && c.competitors.find((x) => !x.winner);
+    if (!win || !lose) continue;
+    const people = (x) => (x.athlete ? [x.athlete] : (x.roster && x.roster.athletes) || []);
+    const status = c.status.type.name;
+    out[key] = {
+      winner: people(win).map((a) => a.shortName || a.displayName),
+      loser: people(lose).map((a) => a.shortName || a.displayName),
+      full: { winner: people(win).map((a) => a.displayName), loser: people(lose).map((a) => a.displayName) },
+      score: (win.linescores || []).map((s, i) => {
+        const l = (lose.linescores || [])[i] || {};
+        const tb = s.tiebreak != null && l.tiebreak != null ? Math.min(s.tiebreak, l.tiebreak) : null;
+        if (tb != null && s.value === 1 && !l.value) return matchTiebreak(tb);
+        return `${s.value}-${l.value ?? 0}${tb != null ? `(${tb})` : ""}`;
+      }).join(" "),
+      note: status === "STATUS_WALKOVER" ? "w/o" : status === "STATUS_RETIRED" ? "ret." : null,
+    };
+  }
+  return out;
+}
+
 const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || "");
 
 // Tournaments removed by hand (data/hidden.json). An entry matches on tour and id; ATP ids can be
@@ -217,4 +279,4 @@ function isHidden(t, hidden = HIDDEN) {
     (h.year == null || Number(h.year) === Number(t.year)));
 }
 
-module.exports = { wtaTournaments, wtaPlayers, atpTournaments, atpPlayers, isDate, isHidden };
+module.exports = { wtaTournaments, wtaPlayers, atpTournaments, atpPlayers, wtaResults, atpResults, isDate, isHidden };

@@ -32,6 +32,15 @@ ITF events are excluded. Results are paged; the code requests up to 100 per page
 
 This is the **entry list**, published before the draw. Each player has a name, country code and seed, plus an entry type: `M` (main draw) or `Q` (qualifying). Singles are event `LS` and doubles are `LD`.
 
+### Results
+
+`GET /{id}/{year}/matches`, for example `/1075/2026/matches` for Wuhan.
+
+Every match of the tournament. The site uses the main-draw finals (`DrawLevelType` `M`, `RoundID` `F`), singles (`DrawMatchType` `S`) and doubles (`D`), to show the champions of completed tournaments.
+
+- `Winner` gives the winning side: `2`, `4` or `6` for side A (won, opponent retired, walkover) and `3`, `5` or `7` for side B.
+- `ScoreString` is from the winner's side, for example `7-6(6),0-1 Ret'd`. A deciding match tiebreak is written as a set, `1-0(5)`; the site shows it as `[10-5]`. A walkover is ` W/O`.
+
 ### Notes
 
 - The draws page on wtatennis.com showed no player names before the draw ("Draw Currently Not Available"); the API's entry list did.
@@ -52,6 +61,10 @@ ESPN gives dates as midnight US Eastern time in UTC. For example, an end time of
 ### Players
 
 The code requests the tournament's date range, finds the event by ID (for example `315-2026` for Shanghai), and collects every named competitor from its matches, singles and doubles, including qualifying. Each player has a name, country and, where ESPN gives one, a seed.
+
+### Results
+
+The same scoreboard request gives each match's round. The site uses the `Final` competition of the men's singles and men's doubles groupings (Beijing's combined event also carries the women's draws, which come from the WTA feed instead). The winning competitor has `winner: true`, each set is a `linescores` entry with `tiebreak` points where played, and the status is `STATUS_FINAL`, `STATUS_RETIRED` or `STATUS_WALKOVER`.
 
 ### Tournament level
 
