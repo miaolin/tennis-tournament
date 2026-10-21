@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- Withdrawn players in alerts are no longer struck through, so their names are easier to read. The red chip and − sign still mark them.
+
 ## [1.4.0] - 2026-10-21
 
 ### Added
