@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-21
+
 ### Added
 
 - Completed tournaments show their champions: one line each for the singles and doubles finals, with the runner-up and the score (retirements and walkovers noted). Hovering shows full names. Results load in the background, from the WTA feed for WTA events and ESPN for ATP events (new `/api/results`), and are kept in the browser since a final never changes.
@@ -105,7 +107,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - ATP data comes from ESPN because atptour.com blocks automated requests, so ATP tournaments have no pre-draw entry list, surface, prize money or level (levels added in a later release).
 
-[Unreleased]: https://github.com/miaolin/tennis-tournament/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/miaolin/tennis-tournament/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/miaolin/tennis-tournament/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/miaolin/tennis-tournament/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/miaolin/tennis-tournament/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/miaolin/tennis-tournament/compare/v1.0.0...v1.1.0
