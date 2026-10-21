@@ -7,6 +7,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- Completed tournaments show their champions: one line each for the singles and doubles finals, with the runner-up and the score (retirements and walkovers noted). Hovering shows full names. Results load in the background, from the WTA feed for WTA events and ESPN for ATP events (new `/api/results`), and are kept in the browser since a final never changes.
 - The list view jumps to the first in-progress tournament, past the completed ones: when the site opens and when you choose a month (or All), a tour or a type.
 - Each alert has a Dismiss ✕ link that removes just that alert, so it no longer shows. Clear all still removes every alert.
 
