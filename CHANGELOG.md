@@ -5,6 +5,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- Player tracker: a new **★ Players** tab, next to List and Calendar, to follow players and see their season.
+  - A dropdown of every player in this year's lists (with country, tour and number of tournaments): type to narrow it down, and click a player (or use the arrow keys and Enter) to follow or unfollow them. The ☆ next to each name in a player list does the same.
+  - Each followed player's year is drawn as a chain of tournaments from left to right: one stop per tournament (its tile, dates, singles or doubles, draw, seed and doubles partner), joined by a solid line up to a **Today** marker and a dashed one after. Each stop is marked Played, 🏆 Champion, Final, Playing now or Upcoming, and the chain opens scrolled to today. Clicking a stop opens the tournament.
+  - Above each chain: tournaments played, titles, tournaments to come, and the one they're playing now or next.
+  - Upcoming tournaments appear once their player list is published.
+  - Tournament cards show ★ with the followed players entered, and their rows in player lists are highlighted. In alerts, followed players' chips are starred and outlined in gold, and the notice names them.
+  - The first load reads all of the year's player lists (about half a minute). Finished tournaments' lists are then kept in your browser, and the rest are reloaded once an hour while the site is open. Followed players are kept in your browser only.
+
+### Fixed
+
+- ATP player lists of combined events (Grand Slams, Indian Wells, Miami, Madrid, Rome, Cincinnati, Beijing…) included the women's singles, women's doubles and mixed doubles players. They now list the men's draws only.
+- The doubles champion of an ATP combined event could be the mixed doubles winners (the 2026 US Open showed Muchová / Menšík). Champions already saved in the browser are loaded again.
+
 ### Changed
 
 - Withdrawn players in alerts are no longer struck through, so their names are easier to read. The red chip and − sign still mark them.
