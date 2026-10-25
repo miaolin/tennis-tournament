@@ -62,9 +62,11 @@ ESPN gives dates as midnight US Eastern time in UTC. For example, an end time of
 
 The code requests the tournament's date range, finds the event by ID (for example `315-2026` for Shanghai), and collects every named competitor from its matches, singles and doubles, including qualifying. Each player has a name, country and, where ESPN gives one, a seed.
 
+Combined events (Grand Slams, Indian Wells, Miami, Madrid, Rome, Cincinnati, Beijing…) also carry the `Women's Singles`, `Women's Doubles` and `Mixed Doubles` groupings. Those are skipped: women come from the WTA feed, and mixed doubles isn't shown.
+
 ### Results
 
-The same scoreboard request gives each match's round. The site uses the `Final` competition of the men's singles and men's doubles groupings (Beijing's combined event also carries the women's draws, which come from the WTA feed instead). The winning competitor has `winner: true`, each set is a `linescores` entry with `tiebreak` points where played, and the status is `STATUS_FINAL`, `STATUS_RETIRED` or `STATUS_WALKOVER`.
+The same scoreboard request gives each match's round. The site uses the `Final` competition of the men's singles and men's doubles groupings, skipping the women's and mixed doubles groupings of combined events. The winning competitor has `winner: true`, each set is a `linescores` entry with `tiebreak` points where played, and the status is `STATUS_FINAL`, `STATUS_RETIRED` or `STATUS_WALKOVER`.
 
 ### Tournament level
 
@@ -79,7 +81,7 @@ ESPN only flags Grand Slams (`major: true`). Other levels (ATP 250, ATP 500, ATP
 
 ### Possible alternative
 
-The ATP posts entry lists and draws as PDFs on protennislive.com, for example `https://www.protennislive.com/posting/2026/{id}/mds.pdf`. These are reachable without bot protection and would give pre-draw ATP entry lists, but the site would have to parse PDFs, which is less reliable than a JSON feed.
+The ATP posts entry lists and draws as PDFs on protennislive.com, for example `https://www.protennislive.com/posting/2026/{id}/mds.pdf`. These would give pre-draw ATP entry lists, but as of October 2026 protennislive.com is behind the same Cloudflare challenge as atptour.com. Wikipedia's tournament pages, another possible source, usually don't exist before the draw either. So the player tracker shows ATP players on a tournament only from the draw, with likely tournaments marked "not confirmed" until then.
 
 ## Player photos
 

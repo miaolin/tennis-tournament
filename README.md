@@ -2,10 +2,11 @@
 
 A small website that collects ATP and WTA tournament information (dates, venue, level, surface, prize money) and player lists in one place.
 
-**Live:** https://tennis-tournament-vercel-deploy.vercel.app · **Version:** 1.4.0 ([changelog](CHANGELOG.md))
+**Live:** https://tennis-tournament-vercel-deploy.vercel.app · **Version:** 1.5.0 ([changelog](CHANGELOG.md))
 
 ## Features
 
+- Two main tabs: **🏆 Tournaments** (everything below) and **★ Players**, the [player tracker](#player-tracker)
 - ATP and WTA tournaments on one page, grouped by month, with an "In progress / Upcoming / Completed" status
 - List view or calendar view (month grids with each tournament as a bar across its dates)
 - Filter by tour (ALL / ATP / WTA tiles with counts), tournament type (icon tiles with counts: Grand Slam, 1000, 500, 250, 125, Finals), month, and year (‹ 2026 › switcher)
@@ -13,11 +14,22 @@ A small website that collects ATP and WTA tournament information (dates, venue, 
 - Search by tournament, city or country, plus players in any tournament you've opened
 - Click a tournament to load its player list: singles and doubles, grouped into main draw and qualifying, with seeds
 - Keep player lists current: **Update** reloads a list from the source, an open list reloads by itself every hour (until the tournament ends), and a summary shows who withdrew, was added or moved since you first opened it
-- In-app player alerts: while the site is open, it checks every tournament starting within 15 days once an hour and shows any player list change under **🔔 Alerts**: each player as a colored chip (withdrawn, added, moved), with a New / Read label per alert, folding (click an alert's title; read alerts start folded), a Close button, a count of new ones, a notice, and an optional desktop notification. Kept in your browser only
-- Player tracker (**★ Players** tab): follow players from a dropdown of this year's players, or with the ☆ next to a name in any player list. Each one's season shows as a chain of tournaments, played (with titles and finals) up to a Today marker, then upcoming; cards show ★ with the followed players entered, and alerts star them. Kept in your browser only
+- In-app tournament alerts: while the site is open, it checks every tournament starting within 15 days once an hour and shows any player list change under **🔔 Alerts**: each player as a colored chip (withdrawn, added, moved), with a New / Read label per alert, folding (click an alert's title; read alerts start folded), a Close button, a count of new ones, a notice, and an optional desktop notification. Kept in your browser only
 - Daily email alert when a player list changes for any tournament starting within 15 days (see [Daily email alerts](#daily-email-alerts))
 - Player photos in the player lists, with credits (see [Player photos](#player-photos))
 - Link to each tournament's official page
+
+## Player tracker
+
+The **★ Players** tab follows a few players through the season.
+
+- **Follow** players from the dropdown of everyone in this year's player lists (type to narrow it down), or with the ☆ next to a name in any player list.
+- **The chain:** each followed player's year as a row of tournaments, left to right, joined by a line that's solid up to **Today** and dashed after. Each stop shows the tournament, dates, singles or doubles, draw, seed and partner, marked Played, 🏆 Champion, Final, Playing now, Upcoming or Withdrawn. Clicking a stop opens the tournament.
+- **Not confirmed:** a player only appears on a tournament once its list is published (WTA entry lists a few weeks ahead, ATP players only at the draw; see [data sources](docs/data-sources.md)). Until then, faded stops show the likely ones: tournaments on their tour that haven't started, at a level they've played this year, in a week they aren't entered elsewhere.
+- **🔔 Player alerts:** each hourly check compares followed players' entries with the check before and reports anyone who entered a tournament, withdrew or moved between draws, with a notice and an optional desktop notification. Separate from the tournament alerts.
+- Tournament cards show ★ with the followed players entered, and tournament alerts star them.
+
+It reads all of the year's player lists, about half a minute on the first visit. Finished tournaments' lists are then kept in the browser and the rest reload hourly. Followed players and alerts are kept in your browser only.
 
 ## Project layout
 
