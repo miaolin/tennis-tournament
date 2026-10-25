@@ -5,24 +5,29 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-25
+
 ### Added
 
-- Player tracker: a new **★ Players** tab, next to List and Calendar, to follow players and see their season.
-  - A dropdown of every player in this year's lists (with country, tour and number of tournaments): type to narrow it down, and click a player (or use the arrow keys and Enter) to follow or unfollow them. The ☆ next to each name in a player list does the same.
-  - Each followed player's year is drawn as a chain of tournaments from left to right: one stop per tournament (its tile, dates, singles or doubles, draw, seed and doubles partner), joined by a solid line up to a **Today** marker and a dashed one after. Each stop is marked Played, 🏆 Champion, Final, Playing now or Upcoming, and the chain opens scrolled to today. Clicking a stop opens the tournament.
-  - Above each chain: tournaments played, titles, tournaments to come, and the one they're playing now or next.
-  - Upcoming tournaments appear once their player list is published.
-  - Tournament cards show ★ with the followed players entered, and their rows in player lists are highlighted. In alerts, followed players' chips are starred and outlined in gold, and the notice names them.
-  - The first load reads all of the year's player lists (about half a minute). Finished tournaments' lists are then kept in your browser, and the rest are reloaded once an hour while the site is open. Followed players are kept in your browser only.
-
-### Fixed
-
-- ATP player lists of combined events (Grand Slams, Indian Wells, Miami, Madrid, Rome, Cincinnati, Beijing…) included the women's singles, women's doubles and mixed doubles players. They now list the men's draws only.
-- The doubles champion of an ATP combined event could be the mixed doubles winners (the 2026 US Open showed Muchová / Menšík). Champions already saved in the browser are loaded again.
+- Two main tabs along the bottom of the header: **🏆 Tournaments**, the list and calendar as before (it remembers whether you were on List or Calendar), and **★ Players**, a new player tracker.
+- Player tracker (★ Players tab): follow players and see their whole season.
+  - Follow players from a dropdown of everyone in this year's player lists, with country, tour and number of tournaments. Type to narrow it down, then click a player (or use the arrow keys and Enter) to follow or unfollow them. The ☆ next to each name in any player list does the same.
+  - Each followed player's year is drawn as a chain of tournaments from left to right, one stop per tournament: its tile, dates, singles or doubles, draw, seed and doubles partner. A solid line joins the stops up to a **Today** marker, and a dashed one after it. Each stop is marked Played, 🏆 Champion, Final, Playing now, Upcoming or Withdrawn, and the chain opens scrolled to today. Clicking a stop opens the tournament.
+  - Above each chain: tournaments played, titles, tournaments to come, withdrawals, and the tournament they're playing now or next.
+  - Tournaments still to come appear once the player is on their published list: WTA entry lists come out a few weeks ahead, ATP players only at the draw. Until then the chain shows faded **Not confirmed** stops: tournaments on their tour that haven't started, at a level they've played this year, in a week they aren't entered elsewhere. The year-end Finals only show for players seeded in the top 8 at a Grand Slam or 1000 this year.
+  - **🔔 Player alerts**, separate from the tournament alerts: after each hourly check, followed players who entered a tournament, withdrew from one (no longer on a list that's still published) or moved between draws, such as from qualifying to the main draw. Each alert has New / Read, Open and Dismiss, with Mark all read and Clear all. New ones show a notice and, if allowed, a desktop notification. The check also runs in a background tab.
+  - On the Players tab, the tracker's bar (player search, Check now, Player alerts) takes the place of the tournament controls.
+  - Elsewhere: tournament cards show ★ with the followed players entered, their rows in player lists are highlighted, and in tournament alerts their chips are starred and outlined in gold, and the notice names them.
+  - The first visit reads all of the year's player lists, which takes about half a minute. Finished tournaments' lists are then kept in your browser, and the rest are reloaded once an hour while the site is open. Followed players and player alerts are kept in your browser only.
 
 ### Changed
 
 - Withdrawn players in alerts are no longer struck through, so their names are easier to read. The red chip and − sign still mark them.
+
+### Fixed
+
+- ATP player lists of combined events (Grand Slams, Indian Wells, Miami, Madrid, Rome, Cincinnati, Beijing…) included the women's singles, women's doubles and mixed doubles players. They now list the men's draws only.
+- The doubles champion of an ATP combined event could be the mixed doubles winners: the 2026 US Open showed Muchová / Menšík. Champions already saved in the browser are loaded again.
 
 ## [1.4.0] - 2026-10-21
 
@@ -126,7 +131,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - ATP data comes from ESPN because atptour.com blocks automated requests, so ATP tournaments have no pre-draw entry list, surface, prize money or level (levels added in a later release).
 
-[Unreleased]: https://github.com/miaolin/tennis-tournament/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/miaolin/tennis-tournament/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/miaolin/tennis-tournament/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/miaolin/tennis-tournament/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/miaolin/tennis-tournament/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/miaolin/tennis-tournament/compare/v1.1.0...v1.2.0
