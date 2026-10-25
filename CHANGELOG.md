@@ -7,11 +7,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- Follow players. A ☆ next to each name in a player list follows that player, and **★ Players** lists everyone you follow, or adds them by name (with suggestions from the lists loaded).
-  - For each followed player, the panel shows every tournament they're entered in, in progress or starting within 15 days: singles or doubles, draw, seed and doubles partner. Clicking a tournament opens it.
+- Follow players. **★ Players** opens a dropdown of every player in this year's lists (with country, tour and number of tournaments): type to narrow it down, and click a player (or use the arrow keys and Enter) to follow or unfollow them. The ☆ next to each name in a player list does the same.
+  - For each followed player, the panel lists every tournament of the year they're entered in: **Playing & upcoming** first, then **Played in 2026**, each with singles or doubles, draw, seed and doubles partner. Clicking a tournament opens it. Upcoming tournaments appear once their player list is published.
   - Tournament cards show ★ with the followed players entered, and their rows in player lists are highlighted.
   - In alerts, followed players' chips are starred and outlined in gold, and the notice names them.
-  - The lists are checked once an hour while the site is open. Followed players are kept in your browser only.
+  - The first load reads all of the year's player lists (about half a minute). Finished tournaments' lists are then kept in your browser, and the rest are reloaded once an hour while the site is open. Followed players are kept in your browser only.
+
+### Fixed
+
+- ATP player lists of combined events (Grand Slams, Indian Wells, Miami, Madrid, Rome, Cincinnati, Beijing…) included the women's singles, women's doubles and mixed doubles players. They now list the men's draws only.
+- The doubles champion of an ATP combined event could be the mixed doubles winners (the 2026 US Open showed Muchová / Menšík). Champions already saved in the browser are loaded again.
 
 ### Changed
 

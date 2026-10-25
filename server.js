@@ -191,7 +191,8 @@ async function atpPlayers(id, start, end, fresh = false) {
   const seen = { singles: new Set(), doubles: new Set() };
   for (const g of ev.groupings || []) {
     const label = (g.grouping && g.grouping.displayName) || "";
-    const key = /double/i.test(label) ? "doubles" : /single/i.test(label) ? "singles" : null;
+    // Combined events (Grand Slams, Indian Wells, Beijing…) also carry the women's and mixed draws: not ATP players.
+    const key = /women|mixed/i.test(label) ? null : /double/i.test(label) ? "doubles" : /single/i.test(label) ? "singles" : null;
     if (!key) continue;
     for (const c of g.competitions || []) {
       for (const comp of c.competitors || []) {

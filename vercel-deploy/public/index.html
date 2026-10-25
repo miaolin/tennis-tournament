@@ -274,8 +274,19 @@
   .players li.fav { background: color-mix(in srgb, var(--gold) 12%, transparent); }
   .fav-tag { color: var(--gold); font-weight: 600; }
   .diff .chip.fav { font-weight: 700; box-shadow: 0 0 0 1.5px var(--gold); }
-  .follow-add { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
-  .follow-add input { flex: 1 1 220px; }
+  /* Player dropdown: a search box with the matching players listed under it */
+  .pick { position: relative; margin-bottom: 8px; }
+  .pick input { width: 100%; }
+  .pick-list { position: absolute; z-index: 10; left: 0; right: 0; top: calc(100% + 4px); max-height: 340px; overflow-y: auto; padding: 4px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+  .pick-opt { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 7px; cursor: pointer; font-size: 14px; }
+  .pick-opt:hover, .pick-opt.active { background: color-mix(in srgb, var(--court) 12%, var(--surface)); }
+  .pick-opt .star { margin: 0; }
+  .pick-name { flex: 1; min-width: 0; }
+  .pick-opt .cc { font-size: 11px; font-weight: 600; color: var(--muted); }
+  .tour-tag { font: italic 900 11px Inter, sans-serif; letter-spacing: -.03em; min-width: 28px; text-align: right; }
+  .tour-tag.ATP { color: var(--atp); } .tour-tag.WTA { color: var(--wta); }
+  .pick-more { padding: 6px 10px; }
   .trace { display: grid; gap: 4px; margin-top: 6px; }
   .trace-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; font-size: 13px; }
   .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 20; display: flex; align-items: center; gap: 14px;
@@ -1117,15 +1128,17 @@ window.addEventListener("storage", (e) => {
 });
 
 // ---------------------------------------------------------------- Followed players
-// Follow a player with the ☆ next to their name in any player list, or by name in the Players panel.
-// The panel shows where each followed player is entered (singles or doubles, draw, seed): every tournament
-// in progress or starting within WATCH_DAYS days, whose lists are loaded once an hour while the site is open,
-// plus any other list opened on this visit. Followed players are kept in this browser only.
-state.follow = saved.get("followedPlayers", []); // [{ name, tour }]; tour is "" for a name typed in that no list has yet
-state.trace = { at: 0, count: 0, lists: new Map() }; // key → { t, p }
+// Follow a player from the Players panel's dropdown of this year's players, or with the ☆ next to their name in
+// any player list. The panel shows every tournament of the year each followed player is entered in (singles or
+// doubles, draw, seed): the ones in progress or still to come, then the ones played. It loads every player list
+// of the year; finished tournaments' lists never change, so they're kept in this browser, and the rest are
+// reloaded once an hour while the site is open. Followed players are kept in this browser only.
+state.follow = saved.get("followedPlayers", []); // [{ name, tour }]; tour "" (from earlier versions) matches either tour
+state.trace = { at: 0, count: 0, done: 0, lists: new Map() }; // lists: key → { t, p }
 let tracing = false;
 
-const norm = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+const normed = new Map();
+const norm = (s) => normed.get(s) ?? normed.set(s, String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim()).get(s);
 const followMatch = (f, tour, name) => (!f.tour || f.tour === tour) && norm(f.name) === norm(name);
 const isFollowed = (tour, name) => state.follow.some((f) => followMatch(f, tour, name));
 function star(tour, n) {
@@ -1133,7 +1146,7 @@ function star(tour, n) {
   return `<button class="star${on ? " on" : ""}" data-star="${esc(n)}" data-tour="${esc(tour)}" aria-pressed="${on}" title="${esc(label)}" aria-label="${esc(label)}">${on ? "★" : "☆"}</button>`;
 }
 
-// Player lists known for tournaments not yet finished: the hourly scan, then lists opened on this visit (fresher).
+// Player lists known: the year's scan, then lists opened on this visit (fresher) of tournaments not yet finished.
 function knownLists() {
   const now = localDay(new Date()), lists = new Map(state.trace.lists);
   for (const [k, p] of state.players) {
@@ -1168,34 +1181,105 @@ function toggleFollow(tour, name) {
   tracePlayers();
 }
 
-// Load the player lists of every tournament in progress or starting within WATCH_DAYS days, four at a time.
-// The servers cache lists for 10 minutes, so this mostly reuses what the alerts check just loaded.
+// Finished tournaments' lists, kept in this browser as { year, lists: { key: [singles, doubles] } } with each
+// entry as [names, countries, entry, seed].
+const LISTS_KEY = "followLists";
+const pack = (p) => [p.singles, p.doubles].map((es) => es.map((e) => [e.names, e.countries || [], e.entry || "", e.seed || ""]));
+const unpack = (sd) => {
+  const [singles, doubles] = sd.map((es) => es.map(([names, countries, entry, seed]) => ({ names, countries, entry, seed })));
+  return { singles, doubles };
+};
+
+// Load every player list of this year, six at a time: from this browser for finished tournaments already
+// kept, otherwise from the server. Runs while someone is followed or the Players panel is open.
 async function tracePlayers(force = false) {
-  if (tracing || !state.follow.length || (!force && (document.hidden || Date.now() - state.trace.at < UPDATE_MIN * 60e3))) return;
+  if (tracing) return;
+  if (!force && (document.hidden || Date.now() - state.trace.at < UPDATE_MIN * 60e3
+    || (!state.follow.length && $("#followBtn").getAttribute("aria-expanded") !== "true"))) return;
   tracing = true;
+  state.trace = { ...state.trace, done: 0, error: "" };
   renderFollow();
   try {
-    const from = localDay(new Date()), to = numDay(dayNum(from) + WATCH_DAYS);
-    const r = await fetch(`/api/tournaments?from=${from}&to=${to}`);
+    const year = new Date().getFullYear(), now = localDay(new Date());
+    const r = await fetch(`/api/tournaments?from=${year}-01-01&to=${year}-12-31`);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const ts = (await r.json()).tournaments.filter((t) => t.endDate >= from && t.startDate <= to);
-    const lists = new Map();
+    const ts = (await r.json()).tournaments;
+    const cache = saved.get(LISTS_KEY, {}), kept = cache.year === year ? cache.lists : {}, finished = {};
+    const lists = state.trace.lists;
+    state.trace.count = ts.length;
     const one = async (t) => {
-      const params = new URLSearchParams({ tour: t.tour, id: t.id, year: t.year, start: t.startDate, end: t.endDate });
-      try {
-        const res = await fetch(`/api/players?${params}`);
-        if (res.ok) lists.set(key(t), { t, p: await res.json() });
-      } catch {}
+      const k = key(t);
+      if (kept[k]) {
+        lists.set(k, { t, p: unpack(kept[k]) });
+        finished[k] = kept[k];
+      } else {
+        const params = new URLSearchParams({ tour: t.tour, id: t.id, year: t.year, start: t.startDate, end: t.endDate });
+        try {
+          const res = await fetch(`/api/players?${params}`);
+          const p = res.ok && await res.json();
+          if (p) lists.set(k, { t, p });
+          // An empty list may just not be published by the source yet: ask again next time.
+          if (p && t.endDate < now && p.singles.length + p.doubles.length) finished[k] = pack(p);
+        } catch {}
+      }
+      state.trace.done++;
     };
-    for (let i = 0; i < ts.length; i += 4) await Promise.all(ts.slice(i, i + 4).map(one));
-    state.trace = { at: Date.now(), count: ts.length, lists };
+    for (let i = 0; i < ts.length; i += 6) {
+      await Promise.all(ts.slice(i, i + 6).map(one));
+      renderFollow();
+    }
+    for (const k of lists.keys()) if (!ts.some((t) => key(t) === k)) lists.delete(k); // deleted by hand since
+    saved.set(LISTS_KEY, { year, lists: finished });
+    state.trace.at = Date.now();
   } catch (e) {
-    state.trace = { ...state.trace, error: e.message };
+    state.trace.error = e.message;
   } finally {
     tracing = false;
   }
   renderFollow();
   if (state.tournaments.length) render(); // ★ on the cards; skipped while the calendar is still loading
+}
+
+// Dropdown of every player in this year's lists, filtered by what's typed: picking one follows or unfollows them.
+let directory = [], directoryOf = "", pickActive = 0, pickShown = [];
+function playerDirectory() {
+  const version = `${state.trace.at}|${state.trace.lists.size}`;
+  if (version === directoryOf) return directory;
+  const m = new Map();
+  for (const { t, p } of state.trace.lists.values())
+    for (const e of [...p.singles, ...p.doubles]) e.names.forEach((n, i) => {
+      const id = `${t.tour}|${norm(n)}`;
+      if (!m.has(id)) m.set(id, { name: n, key: norm(n), tour: t.tour, cc: "", ts: new Set() });
+      const d = m.get(id);
+      d.cc ||= (e.countries || [])[i] || "";
+      d.ts.add(key(t));
+    });
+  directory = [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
+  directoryOf = version;
+  return directory;
+}
+
+function renderPick() {
+  const list = $("#pickList"), q = norm($("#pickInput").value);
+  // Names with a word starting with what's typed come first.
+  const starts = (d) => d.key.split(/[\s-]+/).some((w) => w.startsWith(q)) || d.key.startsWith(q);
+  const hits = !q ? playerDirectory() : playerDirectory().filter((d) => d.key.includes(q)).sort((a, b) => starts(b) - starts(a));
+  pickShown = hits.slice(0, 100);
+  pickActive = Math.max(0, Math.min(pickActive, pickShown.length - 1));
+  list.innerHTML = pickShown.map((d, i) => {
+    const on = isFollowed(d.tour, d.name);
+    return `<div class="pick-opt${i === pickActive ? " active" : ""}" role="option" id="pick-${i}" data-pick="${i}" aria-selected="${on}">
+      <span class="star${on ? " on" : ""}" aria-hidden="true">${on ? "★" : "☆"}</span><span class="pick-name">${esc(d.name)}</span>
+      <span class="cc">${esc(d.cc)}</span><span class="note">${d.ts.size} tournament${d.ts.size === 1 ? "" : "s"}</span><span class="tour-tag ${d.tour}">${d.tour}</span></div>`;
+  }).join("")
+    + (hits.length > pickShown.length ? `<div class="pick-more note">${hits.length - pickShown.length} more players: keep typing</div>` : "")
+    + (!hits.length ? `<div class="pick-more note">${tracing ? "Still loading this year's players…" : "No player found."}</div>` : "");
+  $("#pickInput").setAttribute("aria-activedescendant", pickShown.length ? `pick-${pickActive}` : "");
+}
+function openPick(open) {
+  $("#pickList").hidden = !open;
+  $("#pickInput").setAttribute("aria-expanded", open);
+  if (open) renderPick();
 }
 
 function renderFollow() {
@@ -1204,37 +1288,42 @@ function renderFollow() {
   const open = btn.getAttribute("aria-expanded") === "true";
   panel.hidden = !open;
   if (!open) return;
-  const now = localDay(new Date()), lists = knownLists();
+  // The heading and dropdown are drawn once, so typing in it isn't interrupted; the rest is redrawn.
+  if (!$("#pickInput")) panel.innerHTML = `<div class="alerts-head"><h2>Followed players</h2>
+      <button class="restore-btn" data-follow="check">Check now</button>
+      <button class="restore-btn" data-follow="close" aria-label="Close followed players">Close ✕</button></div>
+    <div class="pick"><input id="pickInput" type="search" role="combobox" aria-expanded="false" aria-controls="pickList" aria-autocomplete="list"
+      autocomplete="off" placeholder="Find a player to follow…" aria-label="Find a player to follow">
+      <div class="pick-list" id="pickList" role="listbox" aria-label="Players" hidden></div></div>
+    <p class="note" id="followStatus"></p><div id="followList"></div>`;
+  const now = localDay(new Date()), year = new Date().getFullYear();
   const day = (d) => fmt(d, { month: "short", day: "numeric" });
   const time = (ms) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  // Name suggestions: every player in the lists known so far.
-  const names = new Map();
-  for (const { t, p } of lists.values()) for (const e of [...p.singles, ...p.doubles]) for (const n of e.names) names.set(norm(n), `${n}|${t.tour}`);
+  $("#followStatus").innerHTML = `Pick players from the list, or use the ☆ next to a name in any player list.
+    Upcoming tournaments show once their player list is published. `
+    + (tracing ? `Loading this year's player lists… ${state.trace.done}${state.trace.count ? ` / ${state.trace.count}` : ""}`
+      : state.trace.error ? `Check failed: ${esc(state.trace.error)}`
+      : state.trace.at ? `Last check ${time(state.trace.at)} (${state.trace.count} tournaments).` : "");
   const row = (f, x) => {
     const partner = x.e.names.filter((n) => !followMatch(f, x.t.tour, n));
     const how = [x.event, ENTRY[x.e.entry] || x.e.entry, x.e.seed && `seed ${x.e.seed}`, partner.length && `with ${partner.join(" / ")}`].filter(Boolean).join(" · ");
+    const status = x.t.endDate < now ? "Completed" : x.t.startDate <= now ? "In progress" : "Upcoming";
     return `<div class="trace-row"><button class="fold-link" data-open="${esc(key(x.t))}" data-start="${x.t.startDate}">${esc(x.t.name)}</button>
-      <span class="note">${esc(levelLabel(x.t))} · ${day(x.t.startDate)} – ${day(x.t.endDate)} · ${x.t.startDate <= now ? "In progress" : "Upcoming"}</span>
+      <span class="note">${esc(levelLabel(x.t))} · ${day(x.t.startDate)} – ${day(x.t.endDate)} · ${status}</span>
       <span>${esc(how)}</span></div>`;
   };
-  const status = tracing ? "Checking now…" : state.trace.error ? `Check failed: ${esc(state.trace.error)}`
-    : state.trace.at ? `Last check ${time(state.trace.at)} (${state.trace.count} tournaments).` : "";
-  panel.innerHTML = `<div class="alerts-head"><h2>Followed players</h2>
-      ${state.follow.length ? '<button class="restore-btn" data-follow="check">Check now</button>' : ""}
-      <button class="restore-btn" data-follow="close" aria-label="Close followed players">Close ✕</button></div>
-    <form class="follow-add" id="followForm"><input id="followName" list="followNames" placeholder="Add a player by name…" autocomplete="off" aria-label="Player name">
-      <button class="restore-btn" type="submit">Follow</button></form>
-    <datalist id="followNames">${[...names.values()].sort().map((v) => { const [n, tour] = v.split("|"); return `<option value="${esc(n)}" label="${tour}">`; }).join("")}</datalist>
-    <p class="note">Or use the ☆ next to a name in any player list. Shows the tournaments each one is entered in: in progress or starting within ${WATCH_DAYS} days. ${status}</p>`
-    + (state.follow.length
-      ? `<ul>${state.follow.map((f, i) => {
-          const at = whereIs(f);
-          return `<li class="alert"><span><strong>★ ${esc(f.name)}</strong> <span class="note">${esc(f.tour || "ATP or WTA")}</span>
-            ${at.length ? `<div class="trace">${at.map((x) => row(f, x)).join("")}</div>`
-              : `<p class="note">${tracing || !state.trace.at ? "Looking…" : "Not in the player list of any of these tournaments."}</p>`}</span>
-            <span class="alert-actions"><button class="restore-btn" data-unfollow="${i}" aria-label="Unfollow ${esc(f.name)}">Unfollow</button></span></li>`;
-        }).join("")}</ul>`
-      : `<p class="note">Not following anyone yet.</p>`);
+  const section = (title, f, xs) => !xs.length ? "" : `<div class="group-title">${title} (${new Set(xs.map((x) => key(x.t))).size})</div>
+    <div class="trace">${xs.map((x) => row(f, x)).join("")}</div>`;
+  $("#followList").innerHTML = state.follow.length
+    ? `<ul>${state.follow.map((f, i) => {
+        const at = whereIs(f), ahead = at.filter((x) => x.t.endDate >= now), played = at.filter((x) => x.t.endDate < now).reverse();
+        return `<li class="alert"><span><strong>★ ${esc(f.name)}</strong> <span class="note">${esc(f.tour || "ATP or WTA")}</span>
+          ${at.length ? section("Playing &amp; upcoming", f, ahead) + section(`Played in ${year}`, f, played)
+            : `<p class="note">${tracing || !state.trace.at ? "Looking…" : `Not in any player list of ${year}.`}</p>`}</span>
+          <span class="alert-actions"><button class="restore-btn" data-unfollow="${i}" aria-label="Unfollow ${esc(f.name)}">Unfollow</button></span></li>`;
+      }).join("")}</ul>`
+    : `<p class="note">Not following anyone yet.</p>`;
+  if (!$("#pickList").hidden) renderPick();
 }
 
 $("#followBtn").addEventListener("click", (e) => {
@@ -1243,23 +1332,39 @@ $("#followBtn").addEventListener("click", (e) => {
   renderFollow();
   if (open) { $("#followPanel").scrollIntoView({ behavior: "smooth", block: "nearest" }); tracePlayers(); }
 });
-$("#followPanel").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const typed = $("#followName").value.trim();
-  if (!typed) return;
-  // Use the spelling and tour of a matching name in the known lists; a name no list has yet matches either tour.
-  let name = typed, tour = "";
-  for (const { t, p } of knownLists().values())
-    for (const n of [...p.singles, ...p.doubles].flatMap((x) => x.names)) if (norm(n) === norm(typed)) { name = n; tour = t.tour; }
-  if (!state.follow.some((f) => followMatch(f, tour, name))) toggleFollow(tour, name);
-  $("#followName")?.focus();
-});
 $("#followPanel").addEventListener("click", (e) => {
+  if (e.target.id === "pickInput") return openPick(true);
   const b = e.target.closest("button"); if (!b) return;
   if (b.dataset.follow === "close") { $("#followBtn").setAttribute("aria-expanded", false); renderFollow(); return $("#followBtn").focus(); }
   if (b.dataset.follow === "check") return tracePlayers(true);
   if (b.dataset.unfollow) { const f = state.follow[+b.dataset.unfollow]; return toggleFollow(f.tour, f.name); }
   if (b.dataset.open) goToTournament({ key: b.dataset.open, start: b.dataset.start }, false);
+});
+// The dropdown stays open after a pick, so several players can be followed in a row.
+$("#followPanel").addEventListener("mousedown", (e) => {
+  const o = e.target.closest("[data-pick]"); if (!o) return;
+  e.preventDefault(); // keep the focus in the search box
+  pickActive = +o.dataset.pick;
+  const d = pickShown[pickActive];
+  toggleFollow(d.tour, d.name);
+});
+$("#followPanel").addEventListener("focusin", (e) => { if (e.target.id === "pickInput") openPick(true); });
+$("#followPanel").addEventListener("focusout", (e) => { if (e.target.id === "pickInput") openPick(false); });
+$("#followPanel").addEventListener("input", (e) => { if (e.target.id === "pickInput") { pickActive = 0; openPick(true); } });
+$("#followPanel").addEventListener("keydown", (e) => {
+  if (e.target.id !== "pickInput") return;
+  if (e.key === "Escape") return openPick(false);
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    if ($("#pickList").hidden) return openPick(true);
+    pickActive = Math.max(0, Math.min(pickShown.length - 1, pickActive + (e.key === "ArrowDown" ? 1 : -1)));
+    renderPick();
+    $(`#pick-${pickActive}`)?.scrollIntoView({ block: "nearest" });
+  }
+  if (e.key === "Enter" && !$("#pickList").hidden && pickShown[pickActive]) {
+    e.preventDefault();
+    toggleFollow(pickShown[pickActive].tour, pickShown[pickActive].name);
+  }
 });
 
 // ---------------------------------------------------------------- Champions of completed tournaments
@@ -1267,7 +1372,9 @@ $("#followPanel").addEventListener("click", (e) => {
 // Each completed tournament shows its singles and doubles finals. A final never changes, so results are
 // kept in this browser; one that isn't available yet is asked for again on the next visit.
 const resultKey = (t) => `${t.tour}:${t.id}:${t.year}`;
-state.results = saved.get("results", {});
+// Saved as "results2": "results" could hold a mixed doubles final as an ATP event's doubles final.
+try { localStorage.removeItem("results"); } catch {}
+state.results = saved.get("results2", {});
 const resultsTried = new Set(), resultsPending = new Set(), resultsQueue = [];
 let resultsRunning = 0;
 
@@ -1297,7 +1404,7 @@ async function fetchResult(t) {
     const data = await r.json();
     if (r.ok && (data.singles || data.doubles)) {
       state.results[resultKey(t)] = data;
-      saved.set("results", state.results);
+      saved.set("results2", state.results);
     }
   } catch (e) {
     console.warn("Couldn't load results", t.name, e);
