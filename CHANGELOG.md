@@ -5,6 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- Follow players. A ☆ next to each name in a player list follows that player, and **★ Players** lists everyone you follow, or adds them by name (with suggestions from the lists loaded).
+  - For each followed player, the panel shows every tournament they're entered in, in progress or starting within 15 days: singles or doubles, draw, seed and doubles partner. Clicking a tournament opens it.
+  - Tournament cards show ★ with the followed players entered, and their rows in player lists are highlighted.
+  - In alerts, followed players' chips are starred and outlined in gold, and the notice names them.
+  - The lists are checked once an hour while the site is open. Followed players are kept in your browser only.
+
 ### Changed
 
 - Withdrawn players in alerts are no longer struck through, so their names are easier to read. The red chip and − sign still mark them.

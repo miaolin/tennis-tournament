@@ -266,6 +266,18 @@
   .diff.mv .kind { color: #e0a43a; }
   .diff.mv .chip { color: #e0a43a; border-color: color-mix(in srgb, #e0a43a 45%, transparent); background: color-mix(in srgb, #e0a43a 12%, transparent); }
   .diff.mv .chip i { font-style: normal; opacity: .85; }
+  /* Followed players: a star next to each name in player lists, ★ on cards and alert chips, and the Players panel */
+  .star { all: unset; cursor: pointer; margin-left: 3px; padding: 0 2px; font-size: 14px; line-height: 1; color: var(--muted); opacity: .55; }
+  .star:hover, .star.on { opacity: 1; }
+  .star.on { color: var(--gold); }
+  .star:focus-visible { outline: 2px solid var(--court); outline-offset: 1px; border-radius: 3px; opacity: 1; }
+  .players li.fav { background: color-mix(in srgb, var(--gold) 12%, transparent); }
+  .fav-tag { color: var(--gold); font-weight: 600; }
+  .diff .chip.fav { font-weight: 700; box-shadow: 0 0 0 1.5px var(--gold); }
+  .follow-add { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .follow-add input { flex: 1 1 220px; }
+  .trace { display: grid; gap: 4px; margin-top: 6px; }
+  .trace-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; font-size: 13px; }
   .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 20; display: flex; align-items: center; gap: 14px;
     padding: 10px 12px 10px 16px; border-radius: 12px; background: var(--ink); color: var(--bg); font: 500 14px Inter, sans-serif;
     box-shadow: 0 8px 24px rgba(0,0,0,.3); max-width: calc(100vw - 32px); }
@@ -326,6 +338,7 @@
       <button data-step="-1" aria-label="Previous year">‹</button><span id="yearLabel"></span><button data-step="1" aria-label="Next year">›</button>
     </div>
     <label class="grow">Search <input type="search" id="q" placeholder="Tournament, city, country or loaded player…"></label>
+    <button id="followBtn" class="hidden-btn" aria-expanded="false" aria-controls="followPanel">★ Players</button>
     <button id="alertsBtn" class="hidden-btn alerts-btn" aria-expanded="false" aria-controls="alertsPanel">🔔 Alerts</button>
     <button id="hiddenBtn" class="hidden-btn" aria-expanded="false" hidden>Hidden (0)</button>
   </div>
@@ -338,6 +351,7 @@
   <div class="chips" id="typeChips" role="group" aria-label="Tournament type"></div>
 </div>
 
+<section class="wrap hidden-panel" id="followPanel" hidden></section>
 <section class="wrap hidden-panel" id="alertsPanel" hidden></section>
 <section class="wrap hidden-panel" id="hiddenPanel" hidden></section>
 <main class="wrap" id="list"><div class="status">Loading tournaments…</div></main>
@@ -537,7 +551,7 @@ function renderList(list, q) {
 function cardHTML(t, q) {
   const now = localDay(today);
   const status = t.endDate < now ? ["done", "Completed"] : t.startDate <= now ? ["live", "In progress"] : ["next", "Upcoming"];
-  const k = key(t);
+  const k = key(t), fav = followedIn(t);
   return `<article class="card st-${status[0]} ${state.open.has(k) ? "open" : ""} ${status[0] === "done" ? "past" : ""}" data-key="${esc(k)}">
     <button aria-expanded="${state.open.has(k)}">
       ${tileHTML(t)}
@@ -548,6 +562,7 @@ function cardHTML(t, q) {
           <span>${esc(levelLabel(t))}</span>
           ${t.surface ? `<span>${esc(t.surface)}</span>` : ""}
           ${t.prizeMoney ? `<span>${esc(t.prizeMoney)}</span>` : ""}
+          ${fav.length ? `<span class="fav-tag" title="Followed players entered">★ ${esc(fav.join(", "))}</span>` : ""}
         </div>
         ${status[0] === "done" ? champsHTML(t) : ""}
       </span>
@@ -657,7 +672,7 @@ function renderPlayers(t, q) {
       <div class="group-title">${esc(title)}${g ? ` · ${esc(g)}` : ""} (${es.length})</div>
       <ul class="players${state.photosOn ? " with-photos" : ""}">${es
         .sort((a, b) => (+a.seed || 999) - (+b.seed || 999) || a.names[0].localeCompare(b.names[0]))
-        .map((e) => `<li>${faces(e)}<span class="cc">${esc(e.countries.filter(Boolean).join("/"))}</span><span>${hl(e.names.join(" / "))}</span>${added.has(entryId(title, e)) || alertAdded.has(e.names.join(" / ")) ? '<span class="new">New</span>' : ""}${e.seed ? `<span class="seed">[${esc(e.seed)}]</span>` : ""}</li>`)
+        .map((e) => `<li${e.names.some((n) => isFollowed(t.tour, n)) ? ' class="fav"' : ""}>${faces(e)}<span class="cc">${esc(e.countries.filter(Boolean).join("/"))}</span><span>${e.names.map((n) => hl(n) + star(t.tour, n)).join(" / ")}</span>${added.has(entryId(title, e)) || alertAdded.has(e.names.join(" / ")) ? '<span class="new">New</span>' : ""}${e.seed ? `<span class="seed">[${esc(e.seed)}]</span>` : ""}</li>`)
         .join("")}</ul>`).join("");
   };
   const total = p.singles.length + p.doubles.length;
@@ -869,6 +884,8 @@ $("#hiddenPanel").addEventListener("click", (e) => {
 
 $("#list").addEventListener("click", (e) => {
   if (e.target.closest("a")) return;
+  const st = e.target.closest(".star");
+  if (st) return toggleFollow(st.dataset.tour, st.dataset.star);
   const upd = e.target.closest(".upd-btn");
   if (upd) return loadPlayers(upd.dataset.upd, true);
   const del = e.target.closest(".del-btn");
@@ -966,7 +983,10 @@ async function watchPlayers(force = false) {
     if (found.length) {
       state.alerts = [...found, ...saved.get("playerAlerts", [])].slice(0, MAX_ALERTS);
       saved.set("playerAlerts", state.alerts);
-      const names = found.map((a) => a.name).join(", ");
+      // Name any followed players among the changes.
+      const favs = [...new Set(found.flatMap((a) => [...a.removed, ...a.added, ...a.moved.map((m) => m.names)]
+        .flatMap((s) => s.split(" / ")).filter((n) => isFollowed(a.key.split(":")[0], n))))];
+      const names = found.map((a) => a.name).join(", ") + (favs.length ? ` · ★ ${favs.join(", ")}` : "");
       toast(`Player list changes: ${names}`, () => openAlerts(true), "Show");
       if ("Notification" in window && Notification.permission === "granted") {
         try { new Notification("Player list changes", { body: names }); } catch {}
@@ -986,9 +1006,12 @@ function alertText(a) {
   if (a.published) return `<div class="diff in"><span class="kind">Published</span><span class="chip"><b>+</b>${a.published} entries</span></div>`;
   const entry = (c) => ENTRY[c] || c || "–";
   const row = (cls, kind, chips) => chips.length ? `<div class="diff ${cls}"><span class="kind">${kind} (${chips.length})</span>${chips.join("")}</div>` : "";
-  return row("out", "Withdrawn", a.removed.map((n) => `<span class="chip"><b>−</b>${esc(n)}</span>`))
-    + row("in", "Added", a.added.map((n) => `<span class="chip"><b>+</b>${esc(n)}</span>`))
-    + row("mv", "Moved", a.moved.map((m) => `<span class="chip">${esc(m.names)} <i>${esc(entry(m.from))} → ${esc(entry(m.to))}</i></span>`));
+  // Followed players' chips are outlined in gold and starred.
+  const fav = (names) => names.split(" / ").some((n) => isFollowed(a.key.split(":")[0], n));
+  const chip = (names, body) => `<span class="chip${fav(names) ? " fav" : ""}">${fav(names) ? "★ " : ""}${body}</span>`;
+  return row("out", "Withdrawn", a.removed.map((n) => chip(n, `<b>−</b>${esc(n)}`)))
+    + row("in", "Added", a.added.map((n) => chip(n, `<b>+</b>${esc(n)}`)))
+    + row("mv", "Moved", a.moved.map((m) => chip(m.names, `${esc(m.names)} <i>${esc(entry(m.from))} → ${esc(entry(m.to))}</i>`)));
 }
 
 // Folded alerts show one line of counts. Unless folded or unfolded by hand, new alerts are unfolded and
@@ -1053,14 +1076,15 @@ function openAlerts(open) {
 }
 
 // Open an alert's tournament: its month in the list view, all tours and types, details open.
-async function goToTournament(a) {
+// The Players panel opens tournaments the same way, with just { key, start } and no alert to show.
+async function goToTournament(a, fromAlert = true) {
   state.tour = "ALL"; state.type = ""; $("#q").value = "";
   document.querySelectorAll("#tourSeg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.tour === "ALL"));
   setView("list");
   state.month = a.start.slice(0, 7);
   if (+a.start.slice(0, 4) !== state.year) { state.year = +a.start.slice(0, 4); await load(); }
   state.open.add(a.key);
-  state.fromAlert.set(a.key, a);
+  if (fromAlert) state.fromAlert.set(a.key, a);
   render();
   loadPlayers(a.key, true);
   document.querySelector(`.card[data-key="${CSS.escape(a.key)}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1086,9 +1110,156 @@ $("#alertsPanel").addEventListener("click", async (e) => {
   if (b.dataset.alerts === "check") { const run = watchPlayers(true); renderAlerts(); await run; }
   renderAlerts();
 });
-// Another open tab of the site found changes: show them here too.
+// Another open tab of the site found changes, or followed someone: show them here too.
 window.addEventListener("storage", (e) => {
   if (e.key === "playerAlerts") { state.alerts = saved.get("playerAlerts", []); renderAlerts(); }
+  if (e.key === "followedPlayers") { state.follow = saved.get("followedPlayers", []); renderFollow(); render(); }
+});
+
+// ---------------------------------------------------------------- Followed players
+// Follow a player with the ☆ next to their name in any player list, or by name in the Players panel.
+// The panel shows where each followed player is entered (singles or doubles, draw, seed): every tournament
+// in progress or starting within WATCH_DAYS days, whose lists are loaded once an hour while the site is open,
+// plus any other list opened on this visit. Followed players are kept in this browser only.
+state.follow = saved.get("followedPlayers", []); // [{ name, tour }]; tour is "" for a name typed in that no list has yet
+state.trace = { at: 0, count: 0, lists: new Map() }; // key → { t, p }
+let tracing = false;
+
+const norm = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+const followMatch = (f, tour, name) => (!f.tour || f.tour === tour) && norm(f.name) === norm(name);
+const isFollowed = (tour, name) => state.follow.some((f) => followMatch(f, tour, name));
+function star(tour, n) {
+  const on = isFollowed(tour, n), label = `${on ? "Unfollow" : "Follow"} ${n}`;
+  return `<button class="star${on ? " on" : ""}" data-star="${esc(n)}" data-tour="${esc(tour)}" aria-pressed="${on}" title="${esc(label)}" aria-label="${esc(label)}">${on ? "★" : "☆"}</button>`;
+}
+
+// Player lists known for tournaments not yet finished: the hourly scan, then lists opened on this visit (fresher).
+function knownLists() {
+  const now = localDay(new Date()), lists = new Map(state.trace.lists);
+  for (const [k, p] of state.players) {
+    const t = p.singles && state.tournaments.find((x) => key(x) === k);
+    if (t && t.endDate >= now) lists.set(k, { t, p });
+  }
+  return lists;
+}
+
+function followedIn(t) {
+  if (!state.follow.length) return [];
+  const p = state.players.get(key(t))?.singles ? state.players.get(key(t)) : state.trace.lists.get(key(t))?.p;
+  return !p ? [] : [...new Set([...p.singles, ...p.doubles].flatMap((e) => e.names).filter((n) => isFollowed(t.tour, n)))];
+}
+
+// Where a followed player is entered, by start date.
+function whereIs(f) {
+  const out = [];
+  for (const { t, p } of knownLists().values())
+    for (const [event, es] of [["Singles", p.singles], ["Doubles", p.doubles]])
+      for (const e of es) if (e.names.some((n) => followMatch(f, t.tour, n))) out.push({ t, event, e });
+  return out.sort((a, b) => a.t.startDate.localeCompare(b.t.startDate) || a.event.localeCompare(b.event));
+}
+
+function toggleFollow(tour, name) {
+  const i = state.follow.findIndex((f) => followMatch(f, tour, name));
+  if (i >= 0) state.follow.splice(i, 1);
+  else state.follow.push({ name, tour });
+  saved.set("followedPlayers", state.follow);
+  render();
+  renderFollow();
+  tracePlayers();
+}
+
+// Load the player lists of every tournament in progress or starting within WATCH_DAYS days, four at a time.
+// The servers cache lists for 10 minutes, so this mostly reuses what the alerts check just loaded.
+async function tracePlayers(force = false) {
+  if (tracing || !state.follow.length || (!force && (document.hidden || Date.now() - state.trace.at < UPDATE_MIN * 60e3))) return;
+  tracing = true;
+  renderFollow();
+  try {
+    const from = localDay(new Date()), to = numDay(dayNum(from) + WATCH_DAYS);
+    const r = await fetch(`/api/tournaments?from=${from}&to=${to}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const ts = (await r.json()).tournaments.filter((t) => t.endDate >= from && t.startDate <= to);
+    const lists = new Map();
+    const one = async (t) => {
+      const params = new URLSearchParams({ tour: t.tour, id: t.id, year: t.year, start: t.startDate, end: t.endDate });
+      try {
+        const res = await fetch(`/api/players?${params}`);
+        if (res.ok) lists.set(key(t), { t, p: await res.json() });
+      } catch {}
+    };
+    for (let i = 0; i < ts.length; i += 4) await Promise.all(ts.slice(i, i + 4).map(one));
+    state.trace = { at: Date.now(), count: ts.length, lists };
+  } catch (e) {
+    state.trace = { ...state.trace, error: e.message };
+  } finally {
+    tracing = false;
+  }
+  renderFollow();
+  if (state.tournaments.length) render(); // ★ on the cards; skipped while the calendar is still loading
+}
+
+function renderFollow() {
+  const btn = $("#followBtn"), panel = $("#followPanel");
+  btn.textContent = `★ Players${state.follow.length ? ` (${state.follow.length})` : ""}`;
+  const open = btn.getAttribute("aria-expanded") === "true";
+  panel.hidden = !open;
+  if (!open) return;
+  const now = localDay(new Date()), lists = knownLists();
+  const day = (d) => fmt(d, { month: "short", day: "numeric" });
+  const time = (ms) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  // Name suggestions: every player in the lists known so far.
+  const names = new Map();
+  for (const { t, p } of lists.values()) for (const e of [...p.singles, ...p.doubles]) for (const n of e.names) names.set(norm(n), `${n}|${t.tour}`);
+  const row = (f, x) => {
+    const partner = x.e.names.filter((n) => !followMatch(f, x.t.tour, n));
+    const how = [x.event, ENTRY[x.e.entry] || x.e.entry, x.e.seed && `seed ${x.e.seed}`, partner.length && `with ${partner.join(" / ")}`].filter(Boolean).join(" · ");
+    return `<div class="trace-row"><button class="fold-link" data-open="${esc(key(x.t))}" data-start="${x.t.startDate}">${esc(x.t.name)}</button>
+      <span class="note">${esc(levelLabel(x.t))} · ${day(x.t.startDate)} – ${day(x.t.endDate)} · ${x.t.startDate <= now ? "In progress" : "Upcoming"}</span>
+      <span>${esc(how)}</span></div>`;
+  };
+  const status = tracing ? "Checking now…" : state.trace.error ? `Check failed: ${esc(state.trace.error)}`
+    : state.trace.at ? `Last check ${time(state.trace.at)} (${state.trace.count} tournaments).` : "";
+  panel.innerHTML = `<div class="alerts-head"><h2>Followed players</h2>
+      ${state.follow.length ? '<button class="restore-btn" data-follow="check">Check now</button>' : ""}
+      <button class="restore-btn" data-follow="close" aria-label="Close followed players">Close ✕</button></div>
+    <form class="follow-add" id="followForm"><input id="followName" list="followNames" placeholder="Add a player by name…" autocomplete="off" aria-label="Player name">
+      <button class="restore-btn" type="submit">Follow</button></form>
+    <datalist id="followNames">${[...names.values()].sort().map((v) => { const [n, tour] = v.split("|"); return `<option value="${esc(n)}" label="${tour}">`; }).join("")}</datalist>
+    <p class="note">Or use the ☆ next to a name in any player list. Shows the tournaments each one is entered in: in progress or starting within ${WATCH_DAYS} days. ${status}</p>`
+    + (state.follow.length
+      ? `<ul>${state.follow.map((f, i) => {
+          const at = whereIs(f);
+          return `<li class="alert"><span><strong>★ ${esc(f.name)}</strong> <span class="note">${esc(f.tour || "ATP or WTA")}</span>
+            ${at.length ? `<div class="trace">${at.map((x) => row(f, x)).join("")}</div>`
+              : `<p class="note">${tracing || !state.trace.at ? "Looking…" : "Not in the player list of any of these tournaments."}</p>`}</span>
+            <span class="alert-actions"><button class="restore-btn" data-unfollow="${i}" aria-label="Unfollow ${esc(f.name)}">Unfollow</button></span></li>`;
+        }).join("")}</ul>`
+      : `<p class="note">Not following anyone yet.</p>`);
+}
+
+$("#followBtn").addEventListener("click", (e) => {
+  const open = e.currentTarget.getAttribute("aria-expanded") !== "true";
+  e.currentTarget.setAttribute("aria-expanded", open);
+  renderFollow();
+  if (open) { $("#followPanel").scrollIntoView({ behavior: "smooth", block: "nearest" }); tracePlayers(); }
+});
+$("#followPanel").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const typed = $("#followName").value.trim();
+  if (!typed) return;
+  // Use the spelling and tour of a matching name in the known lists; a name no list has yet matches either tour.
+  let name = typed, tour = "";
+  for (const { t, p } of knownLists().values())
+    for (const n of [...p.singles, ...p.doubles].flatMap((x) => x.names)) if (norm(n) === norm(typed)) { name = n; tour = t.tour; }
+  if (!state.follow.some((f) => followMatch(f, tour, name))) toggleFollow(tour, name);
+  $("#followName")?.focus();
+});
+$("#followPanel").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.follow === "close") { $("#followBtn").setAttribute("aria-expanded", false); renderFollow(); return $("#followBtn").focus(); }
+  if (b.dataset.follow === "check") return tracePlayers(true);
+  if (b.dataset.unfollow) { const f = state.follow[+b.dataset.unfollow]; return toggleFollow(f.tour, f.name); }
+  if (b.dataset.open) goToTournament({ key: b.dataset.open, start: b.dataset.start }, false);
 });
 
 // ---------------------------------------------------------------- Champions of completed tournaments
@@ -1141,8 +1312,11 @@ async function fetchResult(t) {
 loadHidden();
 load();
 renderAlerts();
+renderFollow();
 watchPlayers();
-setInterval(watchPlayers, 5 * 60e3); // runs the check once it's WATCH_MIN minutes since the last one
+tracePlayers();
+// Each runs its check only once it's an hour since the last one.
+setInterval(() => { watchPlayers(); tracePlayers(); }, 5 * 60e3);
 </script>
 </body>
 </html>
