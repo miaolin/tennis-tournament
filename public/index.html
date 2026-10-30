@@ -1060,6 +1060,8 @@ async function watchPlayers(force = false) {
       } catch { continue; }
       const slim = (es) => es.map((e) => ({ names: e.names, entry: e.entry || "" }));
       const prev = snaps[k];
+      // A list that's gone empty (the WTA sometimes drops the main draw's) says nothing about the players: keep the last one.
+      if (prev && prev.singles.length + prev.doubles.length && !p.singles.length && !p.doubles.length) continue;
       snaps[k] = { end: t.endDate, singles: slim(p.singles), doubles: slim(p.doubles) };
       if (!prev) continue;
       const ch = diffPlayers(prev, p);
@@ -1085,6 +1087,7 @@ async function watchPlayers(force = false) {
       if ("Notification" in window && Notification.permission === "granted") {
         try { new Notification("Player list changes", { body: names }); } catch {}
       }
+      renderFollow(); // withdrawals from these alerts show in the player chains
     }
     renderAlerts();
   } catch (e) {
@@ -1378,6 +1381,23 @@ function checkFollowChanges() {
   renderFollowAlerts();
 }
 
+// Withdrawals found by the tournament alerts, which also cover the time before a player was followed. Oldest
+// first: off a tournament's list, unless back on it in a later alert. Entries are { key, event, end }.
+// An alert that took everyone off a list now empty (the list was dropped, see watchPlayers) is skipped.
+function alertOuts(f) {
+  const out = new Map();
+  for (const a of [...state.alerts].reverse()) {
+    const p = state.trace.lists.get(a.key)?.p, t = state.trace.lists.get(a.key)?.t;
+    if (!t) continue;
+    const mine = (s) => s.split(" / ").some((n) => followMatch(f, t.tour, n));
+    const ev = (s) => (s.includes(" / ") ? "Doubles" : "Singles");
+    const dropped = !a.added.length && !a.moved.length && !(p.singles.length + p.doubles.length);
+    if (!dropped) for (const s of a.removed.filter(mine)) out.set(`${a.key}|${ev(s)}`, { key: a.key, event: ev(s), end: a.end });
+    for (const s of a.added.filter(mine)) out.delete(`${a.key}|${ev(s)}`);
+  }
+  return [...out.values()];
+}
+
 const FOLLOW_KIND = { in: "Entered", out: "Withdrew from", mv: "Moved draws at" };
 const followAlertLine = (a) => `${a.player} ${FOLLOW_KIND[a.kind].toLowerCase()} ${a.name}`;
 
@@ -1555,19 +1575,20 @@ function renderTracker() {
       // top 8 at a Grand Slam or 1000 this year; the Next Gen Finals (under 20s) never.
       const levels = new Set(past.map((s) => tier(s.t)));
       if (past.some((s) => ["gs", "1000"].includes(tier(s.t)) && s.events.some((x) => x.event === "Singles" && +x.e.seed && +x.e.seed <= 8))) levels.add("finals");
-      const busy = (t) => ahead.some((s) => s.t.startDate <= t.endDate && s.t.endDate >= t.startDate);
-      const maybe = !past.length ? [] : [...state.trace.lists.values()]
-        .filter(({ t, p }) => (!f.tour || t.tour === f.tour) && t.startDate > now && !p.singles.length && !p.doubles.length
-          && tier(t) && levels.has(tier(t)) && !/next gen/i.test(t.level || "") && !busy(t))
-        .map(({ t }) => ({ t, events: [], maybe: true }));
-      // Withdrawn: on an earlier check's list, but not any more (see the player alerts).
+      // Withdrawn: on an earlier check's list, but not any more (see the player alerts), or taken off a list in a
+      // tournament alert.
       const outs = new Map();
-      for (const e of Object.values(snaps[fid(f)]?.out || {})) {
+      for (const e of [...Object.values(snaps[fid(f)]?.out || {}), ...alertOuts(f)]) {
         const t = state.trace.lists.get(e.key)?.t;
         if (!t || e.end < now || stops.has(e.key)) continue;
         if (!outs.has(e.key)) outs.set(e.key, { t, out: [] });
-        outs.get(e.key).out.push(e);
+        if (!outs.get(e.key).out.some((x) => x.event === e.event)) outs.get(e.key).out.push(e);
       }
+      const busy = (t) => ahead.some((s) => s.t.startDate <= t.endDate && s.t.endDate >= t.startDate);
+      const maybe = !past.length ? [] : [...state.trace.lists.values()]
+        .filter(({ t, p }) => (!f.tour || t.tour === f.tour) && t.startDate > now && !p.singles.length && !p.doubles.length
+          && tier(t) && levels.has(tier(t)) && !/next gen/i.test(t.level || "") && !busy(t) && !outs.has(key(t)))
+        .map(({ t }) => ({ t, events: [], maybe: true }));
       const coming = [...ahead, ...outs.values(), ...maybe].sort((a, b) => a.t.startDate.localeCompare(b.t.startDate));
       const who = playerDirectory().find((d) => followMatch(f, d.tour, d.name));
       const id = fid(f);
@@ -1618,7 +1639,8 @@ $("#list").addEventListener("click", async (e) => {
     return renderFollowAlerts();
   }
   const b = e.target.closest("[data-follow], [data-unfollow], .stop-btn"); if (!b) return;
-  if (b.dataset.follow === "check") return tracePlayers(true);
+  // Also checks the tournament alerts, which the chains read withdrawals from.
+  if (b.dataset.follow === "check") { watchPlayers(true); return tracePlayers(true); }
   if (b.dataset.unfollow) { const f = state.follow[+b.dataset.unfollow]; return toggleFollow(f.tour, f.name); }
   if (b.dataset.open) goToTournament({ key: b.dataset.open, start: b.dataset.start }, false);
 });
