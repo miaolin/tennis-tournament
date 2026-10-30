@@ -1087,6 +1087,7 @@ async function watchPlayers(force = false) {
       if ("Notification" in window && Notification.permission === "granted") {
         try { new Notification("Player list changes", { body: names }); } catch {}
       }
+      renderFollow(); // withdrawals from these alerts show in the player chains
     }
     renderAlerts();
   } catch (e) {
@@ -1638,7 +1639,8 @@ $("#list").addEventListener("click", async (e) => {
     return renderFollowAlerts();
   }
   const b = e.target.closest("[data-follow], [data-unfollow], .stop-btn"); if (!b) return;
-  if (b.dataset.follow === "check") return tracePlayers(true);
+  // Also checks the tournament alerts, which the chains read withdrawals from.
+  if (b.dataset.follow === "check") { watchPlayers(true); return tracePlayers(true); }
   if (b.dataset.unfollow) { const f = state.follow[+b.dataset.unfollow]; return toggleFollow(f.tour, f.name); }
   if (b.dataset.open) goToTournament({ key: b.dataset.open, start: b.dataset.start }, false);
 });

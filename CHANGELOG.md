@@ -13,7 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Fixed
 
 - 2025 ATP tournaments missing from the old level table (Marseille, Metz, Athens) had no level.
-- The player tracker missed withdrawals from before a player was followed: Qinwen Zheng's withdrawals from Hong Kong and Tokyo (Pan Pacific) didn't show in her chain. It now also reads the tournament alerts, so a tournament a followed player was taken off shows as Withdrawn (unless they're back on its list), and no longer as Not confirmed.
+- The player tracker missed withdrawals from before a player was followed: Qinwen Zheng's withdrawals from Hong Kong and Tokyo (Pan Pacific) didn't show in her chain. It now also reads the tournament alerts, so a tournament a followed player was taken off shows as Withdrawn (unless they're back on its list), and no longer as Not confirmed. The chains redraw as soon as a tournament alert check finds changes, and the Players tab's ↻ Check now also runs that check.
 - When the WTA drops a tournament's main-draw lists (as for the 2026 Hong Kong Open, which now lists only qualifying), the tournament alerts reported every player as withdrawn. A list that goes empty is now ignored, and the last one kept.
 
 ### Changed
