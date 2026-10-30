@@ -81,77 +81,59 @@ const ymd = (d) => d.replace(/-/g, "");
 // means the event finishes on Oct 18). Shift back a few hours to get the local day.
 const espnDay = (iso, shiftHours) => new Date(Date.parse(iso) - shiftHours * 3600e3).toISOString().slice(0, 10);
 
-// ESPN doesn't publish ATP tournament levels, so they're kept here by hand, keyed by
-// ESPN's tournament number (the part of the event id before the year, e.g. "10" in
-// "10-2026" for Vienna). Grand Slams come from ESPN's own `major` flag. Unlisted
-// tournaments show no level. Check this table when the ATP calendar changes.
-const ATP_LEVELS = {
-  // ATP Masters 1000
-  411: "ATP Masters 1000", // Indian Wells
-  713: "ATP Masters 1000", // Miami
-  42: "ATP Masters 1000", // Monte-Carlo
-  413: "ATP Masters 1000", // Madrid
-  414: "ATP Masters 1000", // Rome
-  421: "ATP Masters 1000", // Canada
-  718: "ATP Masters 1000", // Cincinnati
-  315: "ATP Masters 1000", // Shanghai
-  13: "ATP Masters 1000", // Paris
-  // ATP 500
-  4: "ATP 500", // Rotterdam
-  375: "ATP 500", // Rio de Janeiro
-  836: "ATP 500", // Dallas
-  25: "ATP 500", // Dubai
-  119: "ATP 500", // Doha
-  711: "ATP 500", // Acapulco
-  338: "ATP 500", // Barcelona
-  12: "ATP 500", // Munich
-  942: "ATP 500", // Hamburg
-  27: "ATP 500", // Halle
-  129: "ATP 500", // Queen's Club
-  888: "ATP 500", // Washington
-  5: "ATP 500", // Tokyo
-  959: "ATP 500", // Beijing
-  10: "ATP 500", // Vienna
-  23: "ATP 500", // Basel
-  // ATP 250
-  970: "ATP 250", // Brisbane
-  925: "ATP 250", // Auckland
-  971: "ATP 250", // Hong Kong
-  611: "ATP 250", // Adelaide
-  29: "ATP 250", // Montpellier
-  299: "ATP 250", // Buenos Aires
-  296: "ATP 250", // Delray Beach
-  620: "ATP 250", // Santiago
-  145: "ATP 250", // Houston
-  28: "ATP 250", // Marrakech
-  974: "ATP 250", // Bucharest
-  396: "ATP 250", // Geneva
-  49: "ATP 250", // Stuttgart
-  415: "ATP 250", // 's-Hertogenbosch
-  444: "ATP 250", // Eastbourne
-  637: "ATP 250", // Mallorca
-  306: "ATP 250", // Bastad
-  7: "ATP 250", // Gstaad
-  22: "ATP 250", // Umag
-  304: "ATP 250", // Kitzbuhel
-  400: "ATP 250", // Estoril
-  424: "ATP 250", // Los Cabos
-  363: "ATP 250", // Winston-Salem
-  441: "ATP 250", // Chengdu
-  1001: "ATP 250", // Hangzhou
-  440: "ATP 250", // Brussels
-  708: "ATP 250", // Almaty
-  452: "ATP 250", // Lyon
-  148: "ATP 250", // Stockholm
-  // Season finals
-  339: "ATP Finals", // Turin
-  865: "Next Gen ATP Finals", // Jeddah
-};
-const atpLevel = (e) => (e.major ? "Grand Slam" : ATP_LEVELS[e.id.split("-")[0]] || null);
+// ESPN doesn't publish ATP levels, surfaces or draw sizes. They come from the ATP's official
+// calendar PDFs, transcribed into data/atp-calendar.json (one calendar per season, source link
+// included), keyed by ESPN's tournament number: the part of the event id before the year, e.g.
+// "10" in "10-2026" for Vienna. A season without a calendar uses the nearest season's entry.
+// Update the file when the ATP publishes a new or revised calendar.
+const ATP_CALENDAR = require("../data/atp-calendar.json").years;
+
+function atpCalendarEntry(num, year) {
+  const years = Object.keys(ATP_CALENDAR).sort((a, b) => Math.abs(a - year) - Math.abs(b - year) || b - a);
+  for (const y of years) {
+    const t = ATP_CALENDAR[y].tournaments.find((t) => t.espn.includes(+num));
+    if (t) return t;
+  }
+  return null;
+}
+
+// Fills in level, surface and draw size from the calendar, and adds the calendar's tournaments
+// in [from, to] that ESPN doesn't list (yet), e.g. next season's, under the id ESPN will use.
+function withAtpCalendar(list, from, to) {
+  for (const t of list) {
+    const c = atpCalendarEntry(t.id.split("-")[0], t.year);
+    if (!c) continue;
+    t.level = t.level || c.level;
+    t.surface = c.surface;
+    t.drawSize = c.drawSize;
+  }
+  const listed = new Set(list.map((t) => t.id));
+  for (const [year, cal] of Object.entries(ATP_CALENDAR)) {
+    for (const c of cal.tournaments) {
+      if (c.end < from || c.start > to || c.espn.some((n) => listed.has(`${n}-${year}`))) continue;
+      list.push({
+        tour: "ATP",
+        id: `${c.espn[0]}-${year}`,
+        year: +year,
+        name: c.name,
+        level: c.level,
+        city: c.city,
+        country: c.country,
+        surface: c.surface,
+        startDate: c.start,
+        endDate: c.end,
+        prizeMoney: null,
+        drawSize: c.drawSize,
+        url: cal.source,
+      });
+    }
+  }
+  return list;
+}
 
 async function atpTournaments(from, to) {
   const data = await getJSON(`${ESPN_ATP}?dates=${ymd(from)}-${ymd(to)}`);
-  return (data.events || []).map((e) => {
+  return withAtpCalendar((data.events || []).map((e) => {
     const venue = (e.venue && e.venue.displayName) || "";
     const [city, ...rest] = venue.split(",").map((s) => s.trim());
     return {
@@ -159,7 +141,7 @@ async function atpTournaments(from, to) {
       id: e.id,
       year: e.season && e.season.year,
       name: e.name,
-      level: atpLevel(e),
+      level: e.major ? "Grand Slam" : null,
       city: city || null,
       country: rest.join(", ") || null,
       surface: null,
@@ -169,7 +151,7 @@ async function atpTournaments(from, to) {
       drawSize: null,
       url: (e.links && e.links[0] && e.links[0].href) || null,
     };
-  });
+  }), from, to);
 }
 
 async function atpPlayers(id, start, end, fresh = false) {
@@ -280,4 +262,4 @@ function isHidden(t, hidden = HIDDEN) {
     (h.year == null || Number(h.year) === Number(t.year)));
 }
 
-module.exports = { wtaTournaments, wtaPlayers, atpTournaments, atpPlayers, wtaResults, atpResults, isDate, isHidden };
+module.exports = { wtaTournaments, wtaPlayers, atpTournaments, atpPlayers, wtaResults, atpResults, withAtpCalendar, isDate, isHidden };

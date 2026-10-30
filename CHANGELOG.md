@@ -5,6 +5,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- ATP tournaments now come with their official level, surface and draw size, from the ATP's calendar PDFs for 2025, 2026 and 2027 (`vercel-deploy/data/atp-calendar.json`; sources in [docs/data-sources.md](docs/data-sources.md)).
+- 2027 ATP tournaments appear from the 2027 calendar before ESPN lists them. Their player lists fill in once ESPN publishes the draw.
+
+### Fixed
+
+- 2025 ATP tournaments missing from the old level table (Marseille, Metz, Athens) had no level.
+
+### Changed
+
+- The hand-kept `ATP_LEVELS` table in `server.js` and `vercel-deploy/lib/tennis.js` is replaced by the calendar file.
+
 ## [1.5.0] - 2026-10-25
 
 ### Added
