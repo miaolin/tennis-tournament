@@ -160,7 +160,7 @@ The alerts come from `onboarding@resend.dev`, so the first ones may land in spam
 | WTA  | `api.wtatennis.com/tennis/tournaments` (same API behind wtatennis.com) | `/{id}/{year}/players`: entry list (main draw + qualifying), published before the draw |
 | ATP  | ESPN tennis scoreboard (`site.api.espn.com/.../tennis/atp/scoreboard`) | Players from the ESPN draw, available once the draw is made |
 
-atptour.com is behind Cloudflare bot protection, so ATP data comes from ESPN, which doesn't publish pre-draw entry lists, surface, prize money or tournament level. ATP levels come from a hand-maintained table in the server code.
+atptour.com is behind Cloudflare bot protection, so ATP data comes from ESPN, which doesn't publish pre-draw entry lists, surface, prize money or tournament level. ATP levels, surfaces and draw sizes come from the ATP's official calendar PDFs, transcribed into `vercel-deploy/data/atp-calendar.json`, which also supplies next season's tournaments before ESPN lists them.
 The WTA API rejects browser requests from other origins, so the server proxies both sources and caches responses for 10 minutes.
 
 Full details (endpoints, fields used, date handling, limitations): [docs/data-sources.md](docs/data-sources.md).

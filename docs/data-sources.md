@@ -68,16 +68,33 @@ Combined events (Grand Slams, Indian Wells, Miami, Madrid, Rome, Cincinnati, Bei
 
 The same scoreboard request gives each match's round. The site uses the `Final` competition of the men's singles and men's doubles groupings, skipping the women's and mixed doubles groupings of combined events. The winning competitor has `winner: true`, each set is a `linescores` entry with `tiebreak` points where played, and the status is `STATUS_FINAL`, `STATUS_RETIRED` or `STATUS_WALKOVER`.
 
-### Tournament level
+### Level, surface and draw size: the ATP's calendar PDFs
 
-ESPN only flags Grand Slams (`major: true`). Other levels (ATP 250, ATP 500, ATP Masters 1000, ATP Finals, Next Gen ATP Finals) come from the `ATP_LEVELS` table in `server.js` and `vercel-deploy/lib/tennis.js`. The table is keyed by ESPN's tournament number, the part of the event id before the year (`10` in `10-2026` for Vienna), so it carries over from season to season. It covers every 2026 ATP event; a tournament that isn't in it shows no level.
+ESPN only flags Grand Slams (`major: true`). Each tournament's level (ATP 250, ATP 500, ATP Masters 1000, Grand Slam, ATP Finals, Next Gen ATP Finals), surface and singles draw size come from the ATP's official season calendars, published as PDFs on atptour.com:
 
-**Maintenance:** when a tournament is added, removed or changes category, update the table in both files.
+| Season | Calendar PDF |
+|--------|--------------|
+| 2025 | [2025-atp-tour-calendar-25-november-2024.pdf](https://www.atptour.com/-/media/files/calendar-pdfs/2024/2025-atp-tour-calendar-25-november-2024.pdf) |
+| 2026 | [2026-atp-tour-calendar-december-2025.pdf](https://www.atptour.com/-/media/files/calendar-pdfs/2025/2026-atp-tour-calendar-december-2025.pdf) |
+| 2027 | [2027-atp-tour-calendar-14-january-2026-updated.pdf](https://www.atptour.com/-/media/files/calendar-pdfs/2026/2027-atp-tour-calendar-14-january-2026-updated.pdf) |
+
+They're transcribed by hand into `vercel-deploy/data/atp-calendar.json`, one entry per tournament: start and end dates, city, country, level, name, surface (`H` Hard, `CL` Clay, `G` Grass, `IH` Hard (Indoor)) and draw size. The end date is worked out from the PDF's week columns and its footnotes (Saturday final, Tuesday final and so on). Team events (United Cup, Davis Cup, Laver Cup) and tournaments still listed as TBD are left out.
+
+Each entry carries ESPN's tournament number, the part of the event id before the year (`10` in `10-2026` for Vienna), which is how ESPN events are matched to it. A season without a calendar uses the nearest season's entry for the same number.
+
+**Next season:** tournaments in the calendar that ESPN doesn't list yet, such as all of 2027 as of October 2026, are shown from the calendar alone, under the id ESPN will use (`970-2027` for Brisbane), with the calendar PDF as their link. Their player lists stay empty until ESPN publishes the event.
+
+**Differences from ESPN:**
+- The 2025 PDF lists Belgrade in November; the event moved to Athens (Hellenic Championship, ESPN `1039`).
+- ESPN lists 2026 Lyon twice, as `110` (Marseille's old number) and `452`. Both match the Lyon entry.
+- For tournaments ESPN lists, the dates stay ESPN's, which include qualifying.
+
+**Maintenance:** the ATP posts a revised PDF when the calendar changes. Update the season's entries in `atp-calendar.json` and the table above. The file is `/-/media/files/calendar-pdfs/{year it was published}/{season}-atp-tour-calendar-{date}.pdf`; atptour.com blocks scripted downloads, so open it in a browser.
 
 ### What ESPN doesn't provide
 
 - **Pre-draw entry list:** players appear only once the draw is made. Until then, matches list "TBD" and the site shows "No player list published yet."
-- **Surface and prize money:** not shown for ATP tournaments.
+- **Prize money:** not shown for ATP tournaments.
 
 ### Possible alternative
 
