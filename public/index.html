@@ -314,6 +314,14 @@
   .track-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
   .track-head h3 { margin: 0; font: 600 21px/1.2 Fraunces, Georgia, serif; }
   .fav-star { color: var(--gold); }
+  /* Reorder handle: drag a card by it, or focus it and use the arrow keys */
+  .grip { all: unset; cursor: grab; touch-action: none; user-select: none; color: var(--muted); font-size: 20px; line-height: 1; padding: 4px 2px; border-radius: 6px; }
+  .grip:hover { color: var(--ink); }
+  .grip:focus-visible { outline: 2px solid var(--court); outline-offset: 2px; }
+  .track.dragging { border-color: var(--court); box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+  .track.dragging .grip { cursor: grabbing; }
+  /* Unlocked for reordering: the cards' dashed borders say they can be moved */
+  #followList.reordering .track:not(.empty) { border-style: dashed; }
   .track-stats { display: flex; gap: 16px; margin-left: auto; font-size: 12px; color: var(--muted); }
   .track-stats b { font: 600 22px/1 Oswald, "Arial Narrow", sans-serif; color: var(--ink); margin-right: 4px; }
   /* The chain: one stop per tournament, its dot on a line through them all; solid up to today, dashed after */
@@ -1491,8 +1499,11 @@ function openPick(open) {
   if (open) renderPick();
 }
 
+let drag = null; // a followed player's card being dragged to a new place (see moveFollow)
+
 // The Players tab's count, and the tracker itself when that tab is shown.
 function renderFollow() {
+  if (drag) return; // redrawn when the drag ends
   $('#mainTabs [data-page="players"]').innerHTML = `★ Players${state.follow.length ? `<span class="n">${state.follow.length}</span>` : ""}`;
   if (state.view === "players") renderTracker();
 }
@@ -1515,6 +1526,7 @@ function renderTracker() {
       autocomplete="off" placeholder="Find a player to follow…" aria-label="Find a player to follow">
       <div class="pick-list" id="pickList" role="listbox" aria-label="Players" hidden></div></div>
       <button class="restore-btn" data-follow="check">↻ Check now</button>
+      <button class="restore-btn" id="reorderBtn" data-follow="reorder" aria-pressed="false" hidden></button>
       <button class="hidden-btn alerts-btn" id="followAlertsBtn" aria-expanded="false" aria-controls="followAlertsPanel">🔔 Player alerts</button></div>
     <div class="hidden-panel" id="followAlertsPanel" hidden></div>
     <p class="note" id="followStatus"></p><div id="followList"></div></section>`;
@@ -1558,6 +1570,15 @@ function renderTracker() {
   // A chain scrolled by hand stays where it was across redraws; the others are kept at today.
   const scrolled = new Map([...list.querySelectorAll(".chain[data-moved]")].map((c) => [c.dataset.player, c.scrollLeft]));
   const done = [], snaps = saved.get(FOLLOW_SNAP, {});
+  const grip = document.activeElement?.dataset.grip; // a focused reorder handle keeps the focus across redraws
+  // The order is locked until unlocked with the Reorder button; only then do the cards get their ⠿ handles.
+  const rb = $("#reorderBtn");
+  rb.hidden = state.follow.length < 2;
+  if (rb.hidden) state.reorder = false;
+  rb.textContent = state.reorder ? "🔓 Done" : "🔒 Reorder";
+  rb.title = state.reorder ? "Lock the order of the players" : "Unlock to rearrange the players";
+  rb.setAttribute("aria-pressed", !!state.reorder);
+  $("#followList").classList.toggle("reordering", !!state.reorder);
   $("#followList").innerHTML = !state.follow.length
     ? `<div class="track empty"><p>Not following anyone yet. Find a player above to see their season as a chain of tournaments.</p></div>`
     : state.follow.map((f, i) => {
@@ -1594,9 +1615,11 @@ function renderTracker() {
       const id = fid(f);
       return `<article class="track">
         <div class="track-head">
+          ${state.reorder ? `<button class="grip" data-grip="${i}" title="Drag to reorder" aria-label="Reorder ${esc(f.name)}: drag, or press the up and down arrow keys">⠿</button>` : ""}
           <div><h3><span class="fav-star">★</span> ${esc(f.name)}</h3>
             <span class="note">${esc([f.tour || "ATP or WTA", who && who.cc].filter(Boolean).join(" · "))}${next ? next.t.startDate <= now ? ` · playing now: ${esc(next.t.name)}` : ` · next: ${esc(next.t.name)}, ${day(next.t.startDate)}` : ""}</span></div>
           <div class="track-stats"><span><b>${past.length}</b>played</span><span><b>${titles}</b>title${titles === 1 ? "" : "s"}</span><span><b>${ahead.length}</b>to come</span>${outs.size ? `<span><b>${outs.size}</b>withdrawn</span>` : ""}${maybe.length ? `<span><b>${maybe.length}</b>not confirmed</span>` : ""}</div>
+          ${state.reorder && i ? `<button class="restore-btn" data-top="${i}" title="Move to the top" aria-label="Move ${esc(f.name)} to the top">⤒ To top</button>` : ""}
           <button class="restore-btn" data-unfollow="${i}" aria-label="Unfollow ${esc(f.name)}">Unfollow</button>
         </div>
         ${coming.length || past.length ? `<ol class="chain" data-player="${esc(id)}" aria-label="${esc(f.name)}'s ${year} tournaments">
@@ -1604,6 +1627,7 @@ function renderTracker() {
           : `<p class="note">${tracing || !state.trace.at ? "Looking…" : `Not in any player list of ${year}.`}</p>`}
       </article>`;
     }).join("");
+  if (grip != null) $(`[data-grip="${grip}"]`)?.focus({ preventScroll: true });
   for (const c of list.querySelectorAll(".chain")) {
     if (scrolled.has(c.dataset.player)) { c.scrollLeft = scrolled.get(c.dataset.player); c.dataset.moved = ""; }
     else { c.scrollLeft = c.querySelector(".today").offsetLeft - c.clientWidth * 0.6; c.dataset.auto = c.scrollLeft; }
@@ -1638,11 +1662,60 @@ $("#list").addEventListener("click", async (e) => {
     saved.set(FOLLOW_ALERTS, state.followAlerts);
     return renderFollowAlerts();
   }
-  const b = e.target.closest("[data-follow], [data-unfollow], .stop-btn"); if (!b) return;
+  const b = e.target.closest("[data-follow], [data-unfollow], [data-top], .stop-btn"); if (!b) return;
   // Also checks the tournament alerts, which the chains read withdrawals from.
   if (b.dataset.follow === "check") { watchPlayers(true); return tracePlayers(true); }
+  if (b.dataset.follow === "reorder") { state.reorder = !state.reorder; return renderFollow(); }
+  if (b.dataset.top) { moveFollow(+b.dataset.top, 0); return $('[data-grip="0"]')?.focus({ preventScroll: true }); }
   if (b.dataset.unfollow) { const f = state.follow[+b.dataset.unfollow]; return toggleFollow(f.tour, f.name); }
   if (b.dataset.open) goToTournament({ key: b.dataset.open, start: b.dataset.start }, false);
+});
+// Reorder the followed players, once unlocked with the Reorder button: drag a card by its ⠿ handle (mouse or
+// touch), focus the handle and press ↑ / ↓, or send a player straight to the top with ⤒ To top.
+// The order is kept with the followed players.
+function moveFollow(from, to) {
+  if (to !== from && to >= 0 && to < state.follow.length) {
+    state.follow.splice(to, 0, state.follow.splice(from, 1)[0]);
+    saved.set("followedPlayers", state.follow);
+  }
+  renderFollow();
+}
+$("#list").addEventListener("pointerdown", (e) => {
+  const g = e.target.closest("[data-grip]"); if (!g || e.button) return;
+  e.preventDefault();
+  g.setPointerCapture(e.pointerId);
+  drag = { from: +g.dataset.grip, card: g.closest(".track") };
+  drag.card.classList.add("dragging");
+});
+$("#list").addEventListener("pointermove", (e) => {
+  if (!drag) return;
+  // The card moves past another as the pointer crosses that one's middle.
+  const over = [...$("#followList").children].find((c) => {
+    const r = c.getBoundingClientRect();
+    return c !== drag.card && e.clientY >= r.top && e.clientY <= r.bottom;
+  });
+  if (over) {
+    const r = over.getBoundingClientRect();
+    if (e.clientY < r.top + r.height / 2) over.before(drag.card); else over.after(drag.card);
+  }
+  if (e.clientY < 60) scrollBy(0, -12); else if (e.clientY > innerHeight - 60) scrollBy(0, 12);
+});
+const endDrag = () => {
+  if (!drag) return;
+  const { from, card } = drag, to = [...$("#followList").children].indexOf(card);
+  drag = null;
+  moveFollow(from, to);
+  $(`[data-grip="${to}"]`)?.focus({ preventScroll: true });
+};
+$("#list").addEventListener("pointerup", endDrag);
+$("#list").addEventListener("pointercancel", endDrag);
+$("#list").addEventListener("keydown", (e) => {
+  const g = e.target.closest("[data-grip]"); if (!g || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+  e.preventDefault();
+  const from = +g.dataset.grip, to = from + (e.key === "ArrowUp" ? -1 : 1);
+  if (to < 0 || to >= state.follow.length) return;
+  moveFollow(from, to);
+  $(`[data-grip="${to}"]`)?.focus();
 });
 $("#list").addEventListener("mousedown", (e) => {
   const o = e.target.closest("[data-pick]"); if (!o) return;

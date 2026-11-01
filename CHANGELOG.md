@@ -7,6 +7,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- Followed players can be put in any order on the ★ Players tab: press 🔒 Reorder to unlock the order, then drag a player's card by the ⠿ handle next to their name (mouse or touch), focus the handle and press ↑ / ↓, or press ⤒ To top to move a player to the top; 🔓 Done to lock it again. The order is kept in your browser with the followed players.
 - ATP tournaments now come with their official level, surface and draw size, from the ATP's calendar PDFs for 2025, 2026 and 2027 (`vercel-deploy/data/atp-calendar.json`; sources in [docs/data-sources.md](docs/data-sources.md)).
 - 2027 ATP tournaments appear from the 2027 calendar before ESPN lists them. Their player lists fill in once ESPN publishes the draw.
 
