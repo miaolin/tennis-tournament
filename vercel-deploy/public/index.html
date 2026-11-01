@@ -1619,6 +1619,7 @@ function renderTracker() {
           <div><h3><span class="fav-star">★</span> ${esc(f.name)}</h3>
             <span class="note">${esc([f.tour || "ATP or WTA", who && who.cc].filter(Boolean).join(" · "))}${next ? next.t.startDate <= now ? ` · playing now: ${esc(next.t.name)}` : ` · next: ${esc(next.t.name)}, ${day(next.t.startDate)}` : ""}</span></div>
           <div class="track-stats"><span><b>${past.length}</b>played</span><span><b>${titles}</b>title${titles === 1 ? "" : "s"}</span><span><b>${ahead.length}</b>to come</span>${outs.size ? `<span><b>${outs.size}</b>withdrawn</span>` : ""}${maybe.length ? `<span><b>${maybe.length}</b>not confirmed</span>` : ""}</div>
+          ${state.reorder && i ? `<button class="restore-btn" data-top="${i}" title="Move to the top" aria-label="Move ${esc(f.name)} to the top">⤒ To top</button>` : ""}
           <button class="restore-btn" data-unfollow="${i}" aria-label="Unfollow ${esc(f.name)}">Unfollow</button>
         </div>
         ${coming.length || past.length ? `<ol class="chain" data-player="${esc(id)}" aria-label="${esc(f.name)}'s ${year} tournaments">
@@ -1661,15 +1662,16 @@ $("#list").addEventListener("click", async (e) => {
     saved.set(FOLLOW_ALERTS, state.followAlerts);
     return renderFollowAlerts();
   }
-  const b = e.target.closest("[data-follow], [data-unfollow], .stop-btn"); if (!b) return;
+  const b = e.target.closest("[data-follow], [data-unfollow], [data-top], .stop-btn"); if (!b) return;
   // Also checks the tournament alerts, which the chains read withdrawals from.
   if (b.dataset.follow === "check") { watchPlayers(true); return tracePlayers(true); }
   if (b.dataset.follow === "reorder") { state.reorder = !state.reorder; return renderFollow(); }
+  if (b.dataset.top) { moveFollow(+b.dataset.top, 0); return $('[data-grip="0"]')?.focus({ preventScroll: true }); }
   if (b.dataset.unfollow) { const f = state.follow[+b.dataset.unfollow]; return toggleFollow(f.tour, f.name); }
   if (b.dataset.open) goToTournament({ key: b.dataset.open, start: b.dataset.start }, false);
 });
 // Reorder the followed players, once unlocked with the Reorder button: drag a card by its ⠿ handle (mouse or
-// touch), or focus the handle and press ↑ / ↓.
+// touch), focus the handle and press ↑ / ↓, or send a player straight to the top with ⤒ To top.
 // The order is kept with the followed players.
 function moveFollow(from, to) {
   if (to !== from && to >= 0 && to < state.follow.length) {
